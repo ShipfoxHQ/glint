@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "scenario": "cli-invalid-token",
+  "producer": {
+    "name": "@argos-ci/cli",
+    "version": "5.0.5"
+  },
+  "expectedFailure": true,
+  "result": {
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": "- Uploading screenshots\n✖ Build failed: token: Invalid Argos repository token (must be 40 characters): value was \"<redacted-invalid-token>\"\nError: token: Invalid Argos repository token (must be 40 characters): value was \"<redacted-invalid-token>\"\n    at Object.validate (<workspace>/node_modules/.pnpm/convict@6.2.5/node_modules/convict/src/main.js:681:17)\n    at readConfig (file://<workspace>/node_modules/.pnpm/@argos-ci+core@6.1.1/node_modules/@argos-ci/core/dist/index.mjs:968:9)\n    at async Promise.all (index 0)\n    at async upload (file://<workspace>/node_modules/.pnpm/@argos-ci+core@6.1.1/node_modules/@argos-ci/core/dist/index.mjs:1392:29)\n    at async Command.<anonymous> (file://<workspace>/node_modules/.pnpm/@argos-ci+cli@5.0.5/node_modules/@argos-ci/cli/dist/index.mjs:38:19)"
+  },
+  "exchanges": []
+}

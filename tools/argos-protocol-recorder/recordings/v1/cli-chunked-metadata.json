@@ -1,0 +1,880 @@
+{
+  "schemaVersion": 1,
+  "scenario": "cli-chunked-metadata",
+  "producer": {
+    "name": "@argos-ci/cli",
+    "version": "5.0.5"
+  },
+  "expectedFailure": false,
+  "result": {
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": "- Uploading screenshots\n✔ Build created: http://127.0.0.1.invalid/builds/build-cli-chunked-metadata"
+  },
+  "exchanges": [
+    {
+      "sequence": 1,
+      "request": {
+        "method": "GET",
+        "path": "/v2/project",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-1>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "id": "project-recording",
+          "account": {
+            "id": "account-recording",
+            "slug": "recording"
+          },
+          "name": "Argos protocol recording",
+          "defaultBaseBranch": "main",
+          "hasRemoteContentAccess": true
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "request": {
+        "method": "POST",
+        "path": "/v2/builds",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "content-type": "application/json",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-2>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": {
+          "commit": "1111111111111111111111111111111111111111",
+          "branch": "recording-branch",
+          "name": "cli-chunked-metadata",
+          "mode": "ci",
+          "parallel": false,
+          "parallelNonce": null,
+          "screenshots": [
+            {
+              "key": "aa653565b03bd05eba2abfec8befe20b2c4dcd49fd42b4d8f0441b7d389cf1c9",
+              "contentType": "image/png"
+            },
+            {
+              "key": "8837053ea0e5c6aad6f35a3deb7a75082137deec49b186797cb04e36e6443a91",
+              "contentType": "image/png"
+            },
+            {
+              "key": "b71f3753c1a77d64d6452fffa93fc87a2438547cf614ed210e6050742aa29338",
+              "contentType": "image/png"
+            },
+            {
+              "key": "70c614b7855ab67d0cfc781ded7ca3149a3e461d0a8aa6a868a20b565edf73c9",
+              "contentType": "image/png"
+            },
+            {
+              "key": "f25f3025e6c08b1c0d9e2ee61c73536ee0bdec1b9b1a48504219efe6619e5d67",
+              "contentType": "image/png"
+            },
+            {
+              "key": "fc9c30fc5734249a6e21dde9c28f3e8cb44c5dc970f7a699bfadde8c41673434",
+              "contentType": "image/png"
+            },
+            {
+              "key": "1db0862bb88a4c01cd4ac169f40ea74f32377b7987facaf1c5ee948c6ee9275b",
+              "contentType": "image/png"
+            },
+            {
+              "key": "8240ea57de6c38ee9b9b63ce06d239902357c5ea08dc84fdb7e2e4cdb4e7fadd",
+              "contentType": "image/png"
+            },
+            {
+              "key": "e43f7fe442760eda7041673e574164efdf26a9d434e35fc3266e36959ea08ecc",
+              "contentType": "image/png"
+            },
+            {
+              "key": "ff8e58c5b1226f9b6d305ead2fe6934464d1095e83c25135ce76e5d527f31736",
+              "contentType": "image/png"
+            },
+            {
+              "key": "4fe4acc253424b019d82d86384122344699c21b76b5946bab487d220b766fcf5",
+              "contentType": "image/png"
+            },
+            {
+              "key": "cc75ca182d377282321f7c66aec3063fa8a3785902cfb3f095b8bc8a58a8ead2",
+              "contentType": "image/png"
+            }
+          ],
+          "pwTraceKeys": [],
+          "prNumber": null,
+          "prHeadCommit": null,
+          "referenceBranch": null,
+          "referenceCommit": null,
+          "parentCommits": null,
+          "argosSdk": "@argos-ci/core@6.1.1",
+          "ciProvider": "git",
+          "runId": null,
+          "runAttempt": null,
+          "mergeQueue": false,
+          "mergeQueuePrNumbers": null,
+          "subset": false
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "build": {
+            "id": "build-cli-chunked-metadata",
+            "status": "changed",
+            "url": "http://127.0.0.1.invalid/builds/build-cli-chunked-metadata"
+          },
+          "screenshots": [
+            {
+              "key": "aa653565b03bd05eba2abfec8befe20b2c4dcd49fd42b4d8f0441b7d389cf1c9",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "8837053ea0e5c6aad6f35a3deb7a75082137deec49b186797cb04e36e6443a91",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "b71f3753c1a77d64d6452fffa93fc87a2438547cf614ed210e6050742aa29338",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "70c614b7855ab67d0cfc781ded7ca3149a3e461d0a8aa6a868a20b565edf73c9",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "f25f3025e6c08b1c0d9e2ee61c73536ee0bdec1b9b1a48504219efe6619e5d67",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "fc9c30fc5734249a6e21dde9c28f3e8cb44c5dc970f7a699bfadde8c41673434",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "1db0862bb88a4c01cd4ac169f40ea74f32377b7987facaf1c5ee948c6ee9275b",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "8240ea57de6c38ee9b9b63ce06d239902357c5ea08dc84fdb7e2e4cdb4e7fadd",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "e43f7fe442760eda7041673e574164efdf26a9d434e35fc3266e36959ea08ecc",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "ff8e58c5b1226f9b6d305ead2fe6934464d1095e83c25135ce76e5d527f31736",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "4fe4acc253424b019d82d86384122344699c21b76b5946bab487d220b766fcf5",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            },
+            {
+              "key": "cc75ca182d377282321f7c66aec3063fa8a3785902cfb3f095b8bc8a58a8ead2",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            }
+          ],
+          "pwTraces": []
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/1db0862bb88a4c01cd4ac169f40ea74f32377b7987facaf1c5ee948c6ee9275b",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "1db0862bb88a4c01cd4ac169f40ea74f32377b7987facaf1c5ee948c6ee9275b"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 4,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/4fe4acc253424b019d82d86384122344699c21b76b5946bab487d220b766fcf5",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "4fe4acc253424b019d82d86384122344699c21b76b5946bab487d220b766fcf5"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 5,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/70c614b7855ab67d0cfc781ded7ca3149a3e461d0a8aa6a868a20b565edf73c9",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "70c614b7855ab67d0cfc781ded7ca3149a3e461d0a8aa6a868a20b565edf73c9"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 6,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/8240ea57de6c38ee9b9b63ce06d239902357c5ea08dc84fdb7e2e4cdb4e7fadd",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "8240ea57de6c38ee9b9b63ce06d239902357c5ea08dc84fdb7e2e4cdb4e7fadd"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 7,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/8837053ea0e5c6aad6f35a3deb7a75082137deec49b186797cb04e36e6443a91",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "8837053ea0e5c6aad6f35a3deb7a75082137deec49b186797cb04e36e6443a91"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 8,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/aa653565b03bd05eba2abfec8befe20b2c4dcd49fd42b4d8f0441b7d389cf1c9",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "aa653565b03bd05eba2abfec8befe20b2c4dcd49fd42b4d8f0441b7d389cf1c9"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 9,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/b71f3753c1a77d64d6452fffa93fc87a2438547cf614ed210e6050742aa29338",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "b71f3753c1a77d64d6452fffa93fc87a2438547cf614ed210e6050742aa29338"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 10,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/cc75ca182d377282321f7c66aec3063fa8a3785902cfb3f095b8bc8a58a8ead2",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "cc75ca182d377282321f7c66aec3063fa8a3785902cfb3f095b8bc8a58a8ead2"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 11,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/e43f7fe442760eda7041673e574164efdf26a9d434e35fc3266e36959ea08ecc",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "e43f7fe442760eda7041673e574164efdf26a9d434e35fc3266e36959ea08ecc"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 12,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/f25f3025e6c08b1c0d9e2ee61c73536ee0bdec1b9b1a48504219efe6619e5d67",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "f25f3025e6c08b1c0d9e2ee61c73536ee0bdec1b9b1a48504219efe6619e5d67"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 13,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/fc9c30fc5734249a6e21dde9c28f3e8cb44c5dc970f7a699bfadde8c41673434",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "fc9c30fc5734249a6e21dde9c28f3e8cb44c5dc970f7a699bfadde8c41673434"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 14,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/ff8e58c5b1226f9b6d305ead2fe6934464d1095e83c25135ce76e5d527f31736",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "ff8e58c5b1226f9b6d305ead2fe6934464d1095e83c25135ce76e5d527f31736"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 15,
+      "request": {
+        "method": "PUT",
+        "path": "/v2/builds/build-cli-chunked-metadata",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "content-type": "application/json",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-3>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": {
+          "screenshots": [
+            {
+              "key": "aa653565b03bd05eba2abfec8befe20b2c4dcd49fd42b4d8f0441b7d389cf1c9",
+              "name": "fixture-01.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "8837053ea0e5c6aad6f35a3deb7a75082137deec49b186797cb04e36e6443a91",
+              "name": "fixture-02.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "b71f3753c1a77d64d6452fffa93fc87a2438547cf614ed210e6050742aa29338",
+              "name": "fixture-03.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "70c614b7855ab67d0cfc781ded7ca3149a3e461d0a8aa6a868a20b565edf73c9",
+              "name": "fixture-04.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "f25f3025e6c08b1c0d9e2ee61c73536ee0bdec1b9b1a48504219efe6619e5d67",
+              "name": "fixture-05.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "fc9c30fc5734249a6e21dde9c28f3e8cb44c5dc970f7a699bfadde8c41673434",
+              "name": "fixture-06.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "1db0862bb88a4c01cd4ac169f40ea74f32377b7987facaf1c5ee948c6ee9275b",
+              "name": "fixture-07.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "8240ea57de6c38ee9b9b63ce06d239902357c5ea08dc84fdb7e2e4cdb4e7fadd",
+              "name": "fixture-08.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "e43f7fe442760eda7041673e574164efdf26a9d434e35fc3266e36959ea08ecc",
+              "name": "fixture-09.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "ff8e58c5b1226f9b6d305ead2fe6934464d1095e83c25135ce76e5d527f31736",
+              "name": "fixture-10.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "4fe4acc253424b019d82d86384122344699c21b76b5946bab487d220b766fcf5",
+              "name": "fixture-11.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            },
+            {
+              "key": "cc75ca182d377282321f7c66aec3063fa8a3785902cfb3f095b8bc8a58a8ead2",
+              "name": "fixture-12.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            }
+          ],
+          "parallel": false,
+          "parallelTotal": null,
+          "parallelIndex": null
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "build": {
+            "id": "build-cli-chunked-metadata",
+            "status": "changed",
+            "url": "http://127.0.0.1.invalid/builds/build-cli-chunked-metadata"
+          }
+        }
+      }
+    }
+  ]
+}
