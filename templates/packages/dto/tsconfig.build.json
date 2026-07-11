@@ -1,0 +1,12 @@
+{
+  "extends": "@shipfox/ts-config",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}

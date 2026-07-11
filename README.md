@@ -16,3 +16,9 @@ mise run verify
 The individual `build`, `check`, `type`, `type:emit`, `test`, and `depcruise` tasks are also
 available through `mise run <task>`. Package scripts remain independently runnable through
 pnpm as packages land.
+
+## Package architecture
+
+Start a real package from one of the eight shapes in [`templates/packages`](templates/packages/README.md). The templates encode package type and runtime metadata, root-only development/default exports, internal `#*` aliases, and a package-local `depcruise` task. They are excluded from the workspace so future features are not scaffolded before they own behavior.
+
+`mise run depcruise` checks both the workspace manifest graph and every package-local source graph. The shared policy rejects the ten forbidden dependency directions documented in the system design, deep imports that bypass package exports, and cycles. `mise run verify` also runs the architecture fixture tests.
