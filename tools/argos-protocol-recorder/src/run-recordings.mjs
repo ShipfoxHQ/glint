@@ -1,8 +1,8 @@
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {mkdtemp, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile, rename, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {dirname, join, resolve} from 'node:path';
+import {basename, dirname, join, resolve} from 'node:path';
 import {deflateSync} from 'node:zlib';
 import {fileURLToPath} from 'node:url';
 import ArgosPlaywrightReporter from '@argos-ci/playwright/reporter';
@@ -101,7 +101,7 @@ async function runCommand(command, args, options) {
   });
   const exitCode = await new Promise((resolve, reject) => {
     child.once('error', reject);
-    child.once('exit', (code) => resolve(code ?? 1));
+    child.once('close', (code) => resolve(code ?? 1));
   });
   if (options.expectFailure ? exitCode === 0 : exitCode !== 0) {
     throw new Error(
@@ -336,7 +336,10 @@ const scenarioDefinitions = [
   },
 ];
 
-export async function recordAll(outputDirectory = defaultOutputDirectory) {
+export async function recordAll(
+  outputDirectory = defaultOutputDirectory,
+  definitions = scenarioDefinitions,
+) {
   const versions = Object.fromEntries(
     await Promise.all(
       ['@argos-ci/cli', '@argos-ci/playwright', '@argos-ci/storybook'].map(async (name) => [
@@ -345,29 +348,57 @@ export async function recordAll(outputDirectory = defaultOutputDirectory) {
       ]),
     ),
   );
-  await rm(outputDirectory, {recursive: true, force: true});
-  await mkdir(outputDirectory, {recursive: true});
-  const generated = [];
-  for (const definition of scenarioDefinitions) {
-    const temporaryRoot = await mkdtemp(join(tmpdir(), 'glint-argos-recorder-'));
-    const scenario = {
-      ...definition,
-      producer: {name: definition.producer, version: versions[definition.producer]},
-    };
-    const recorder = createProtocolRecorder(scenario);
-    const baseUrl = await recorder.start();
-    try {
-      const result = await definition.run({scenario, temporaryRoot, baseUrl});
-      const recording = recorder.recording(result);
-      const path = join(outputDirectory, `${definition.name}.json`);
-      await writeFile(path, `${JSON.stringify(recording, null, 2)}\n`);
-      generated.push(path);
-    } finally {
-      await recorder.stop();
-      await rm(temporaryRoot, {recursive: true, force: true});
+  const outputParent = dirname(outputDirectory);
+  await mkdir(outputParent, {recursive: true});
+  const stagingDirectory = await mkdtemp(
+    join(outputParent, `.${basename(outputDirectory)}-staging-`),
+  );
+  let promoted = false;
+  try {
+    const generatedNames = [];
+    for (const definition of definitions) {
+      const temporaryRoot = await mkdtemp(join(tmpdir(), 'glint-argos-recorder-'));
+      const scenario = {
+        ...definition,
+        producer: {name: definition.producer, version: versions[definition.producer]},
+      };
+      const recorder = createProtocolRecorder(scenario);
+      const baseUrl = await recorder.start();
+      try {
+        const result = await definition.run({scenario, temporaryRoot, baseUrl});
+        const recording = recorder.recording(result);
+        const filename = `${definition.name}.json`;
+        await writeFile(
+          join(stagingDirectory, filename),
+          `${JSON.stringify(recording, null, 2)}\n`,
+        );
+        generatedNames.push(filename);
+      } finally {
+        await recorder.stop();
+        await rm(temporaryRoot, {recursive: true, force: true});
+      }
     }
+
+    const previousDirectory = `${stagingDirectory}-previous`;
+    let hasPreviousDirectory = true;
+    try {
+      await rename(outputDirectory, previousDirectory);
+    } catch (error) {
+      if (!(error instanceof Error) || error.code !== 'ENOENT') throw error;
+      hasPreviousDirectory = false;
+    }
+    try {
+      await rename(stagingDirectory, outputDirectory);
+      promoted = true;
+    } catch (error) {
+      if (hasPreviousDirectory) await rename(previousDirectory, outputDirectory);
+      throw error;
+    }
+    if (hasPreviousDirectory) await rm(previousDirectory, {recursive: true, force: true});
+    return generatedNames.map((name) => join(outputDirectory, name));
+  } finally {
+    if (!promoted) await rm(stagingDirectory, {recursive: true, force: true});
   }
-  return generated;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

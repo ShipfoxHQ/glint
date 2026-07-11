@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
-import {readFile, readdir} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, readdir, rm, writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
+import {recordAll} from '../src/run-recordings.mjs';
 
 const packageRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const recordingsRoot = join(packageRoot, 'recordings/v1');
@@ -101,4 +103,29 @@ test('parallel shards update both indices then use the manual finalize route', a
   const updates = value.exchanges.filter((exchange) => exchange.request.method === 'PUT');
   assert.deepEqual(updates.map((exchange) => exchange.request.body.parallelIndex), [1, 2]);
   assert.equal(value.exchanges.at(-1).request.path, '/v2/builds/finalize');
+});
+
+test('a failed recording run preserves the previous complete output', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'glint-argos-recorder-test-'));
+  const output = join(root, 'recordings');
+  await mkdir(output);
+  await writeFile(join(output, 'known-good.json'), 'known-good');
+  try {
+    await assert.rejects(
+      recordAll(output, [
+        {
+          name: 'forced-failure',
+          producer: '@argos-ci/cli',
+          run: async () => {
+            throw new Error('fixture-induced generation failure');
+          },
+        },
+      ]),
+      /fixture-induced generation failure/,
+    );
+    assert.deepEqual(await readdir(output), ['known-good.json']);
+    assert.equal(await readFile(join(output, 'known-good.json'), 'utf8'), 'known-good');
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
 });

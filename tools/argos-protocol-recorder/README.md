@@ -21,6 +21,9 @@ git diff --exit-code -- tools/argos-protocol-recorder/recordings
 The last command should print nothing. A diff means the output changed between runs. Review
 that change before you commit it.
 
+The recorder builds the full set in a temporary sibling folder. It replaces the checked-in
+recordings only after every scenario succeeds, so a failed run keeps the last complete set.
+
 ## What it records
 
 The tool runs these exact producer versions:

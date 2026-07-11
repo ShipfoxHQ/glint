@@ -16,8 +16,9 @@ All three producers use `@argos-ci/core@6.1.1` for uploads. The core package use
 - These producer versions do not call `POST /v2/baseline`.
 - No-baseline, unchanged, and changed builds use the same producer-side request flow. The
   server decides the outcome.
-- API requests retry network errors and HTTP 5xx responses. Signed multipart uploads do not
-  use that retry logic.
+- The recordings prove that API requests retry HTTP 5xx responses. The API client source also
+  retries network errors, but this recorder does not simulate that path. Signed multipart
+  uploads do not use the API retry logic.
 - The client processes screenshots in groups of ten, but it still sends one build-create
   request and one build-update request. There is no metadata-chunk API route.
 - The production object store must support signed multipart POST uploads. Presigned PUT alone
@@ -55,8 +56,10 @@ Each API request also sends:
 - `x-argos-request-id`, which stays the same across retries;
 - `x-argos-retry-attempt`, which starts at `0` and increases for each retry.
 
-The API client makes one initial request and allows up to three retries for network errors or
-HTTP 5xx responses. A retry keeps the same request body and request ID.
+The recording proves one initial request and a retry after an HTTP 500 response. The API
+client allows up to three retries for HTTP 5xx responses. Its source also retries network
+errors, but the recorder currently verifies only the HTTP 5xx path. A retry keeps the same
+request body and request ID.
 
 Signed uploads behave differently. They use a direct `fetch` call with a 30-second timeout.
 If an upload fails, the producer stops before `PUT /v2/builds/{buildId}` and does not retry the
