@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "1.0.0",
+  "createdAt": "2026-07-11",
+  "license": "MIT",
+  "provenance": {
+    "kind": "deterministic-synthetic",
+    "containsShipfoxData": false,
+    "containsCustomerData": false,
+    "generator": "FFmpeg lavfi color, drawbox, drawgrid, and testsrc2 sources"
+  },
+  "cases": [
+    {
+      "id": "representative-equal",
+      "tags": ["representative", "equal-hash", "skip-diff"],
+      "inputs": [
+        {"role": "base", "path": "representative/base.png", "sha256": "6384856dbb6f05c8d61009e586f61e1eca88beec7573870bed23f48871ae4051", "bytes": 6376, "width": 1200, "height": 900, "decodedPixels": 1080000, "alpha": false},
+        {"role": "candidate", "path": "representative/equal.png", "sha256": "6384856dbb6f05c8d61009e586f61e1eca88beec7573870bed23f48871ae4051", "bytes": 6376, "width": 1200, "height": 900, "decodedPixels": 1080000, "alpha": false}
+      ],
+      "expected": {"classification": "unchanged", "engineInvocation": false}
+    },
+    {
+      "id": "representative-subtle-change",
+      "tags": ["representative", "small-region", "same-dimensions"],
+      "inputs": [
+        {"role": "base", "path": "representative/base.png", "sha256": "6384856dbb6f05c8d61009e586f61e1eca88beec7573870bed23f48871ae4051", "bytes": 6376, "width": 1200, "height": 900, "decodedPixels": 1080000, "alpha": false},
+        {"role": "candidate", "path": "representative/subtle-change.png", "sha256": "089c9d359022f8d286752cfad04c558955764e1d9f81f0d2a67a956d66cf129a", "bytes": 6417, "width": 1200, "height": 900, "decodedPixels": 1080000, "alpha": false}
+      ],
+      "expected": {"classification": "changed", "engineInvocation": true}
+    },
+    {
+      "id": "representative-structural-change",
+      "tags": ["representative", "large-region", "same-dimensions"],
+      "inputs": [
+        {"role": "base", "path": "representative/base.png", "sha256": "6384856dbb6f05c8d61009e586f61e1eca88beec7573870bed23f48871ae4051", "bytes": 6376, "width": 1200, "height": 900, "decodedPixels": 1080000, "alpha": false},
+        {"role": "candidate", "path": "representative/structural-change.png", "sha256": "bbdbd477758cd028a3b4435299662e8696f7fa3152c314980d4f4a751258920f", "bytes": 6305, "width": 1200, "height": 900, "decodedPixels": 1080000, "alpha": false}
+      ],
+      "expected": {"classification": "changed", "engineInvocation": true}
+    },
+    {
+      "id": "long-page-bottom-change",
+      "tags": ["long-page", "change-near-bottom", "ephemeral-disk"],
+      "inputs": [
+        {"role": "base", "path": "long-page/base.png", "sha256": "59c1a3c3cf24871ffb624027e6a679ab42f0946a1fd7153dfa5b7f1e258fa2ff", "bytes": 23141, "width": 1200, "height": 4000, "decodedPixels": 4800000, "alpha": false},
+        {"role": "candidate", "path": "long-page/candidate.png", "sha256": "17897f293097af322f993e68dd405d292c76a097cf17c545ede973b45f983006", "bytes": 23142, "width": 1200, "height": 4000, "decodedPixels": 4800000, "alpha": false}
+      ],
+      "expected": {"classification": "changed", "engineInvocation": true}
+    },
+    {
+      "id": "transparent-overlap-change",
+      "tags": ["transparency", "rgba", "same-dimensions"],
+      "inputs": [
+        {"role": "base", "path": "transparency/base.png", "sha256": "1048fd812f241d43639d1ebc7c62608f088c5e905a641bf71c11c63ccec6d43e", "bytes": 3325, "width": 800, "height": 600, "decodedPixels": 480000, "alpha": true},
+        {"role": "candidate", "path": "transparency/candidate.png", "sha256": "273254e7f75cda178614cf4e93c0bf7ba27cb02a44d96863251c88433c88494a", "bytes": 3376, "width": 800, "height": 600, "decodedPixels": 480000, "alpha": true}
+      ],
+      "expected": {"classification": "changed", "engineInvocation": true}
+    },
+    {
+      "id": "dimension-change",
+      "tags": ["dimension-change", "layout-change"],
+      "inputs": [
+        {"role": "base", "path": "dimension-change/base.png", "sha256": "122cc4a707a84dcb9dd50a53b914075f7132e188fe11e4ee1038986b8afb263f", "bytes": 5970, "width": 1200, "height": 900, "decodedPixels": 1080000, "alpha": false},
+        {"role": "candidate", "path": "dimension-change/candidate.png", "sha256": "f8d0f4bde8b54cc903b3c706a76cd2f52984545d558295437b6b32ef3029fcac", "bytes": 6139, "width": 1280, "height": 900, "decodedPixels": 1152000, "alpha": false}
+      ],
+      "expected": {"classification": "layout-changed", "engineInvocation": true}
+    },
+    {
+      "id": "noisy-change",
+      "tags": ["high-entropy", "noisy-image", "compression"],
+      "inputs": [
+        {"role": "base", "path": "noisy/base.png", "sha256": "696798f2b16c1da22709befc040191085ad6b255a01a9706bcc03f5948c8bab4", "bytes": 111590, "width": 1200, "height": 900, "decodedPixels": 1080000, "alpha": false},
+        {"role": "candidate", "path": "noisy/candidate.png", "sha256": "cd6635f0de7f72cfca6458af2102615736e5efbb818b86c7b30f8dee02e0d3ab", "bytes": 111608, "width": 1200, "height": 900, "decodedPixels": 1080000, "alpha": false}
+      ],
+      "expected": {"classification": "changed", "engineInvocation": true}
+    },
+    {
+      "id": "large-solid-decoded-pixel-pressure",
+      "tags": ["limit", "high-compression-ratio", "decoded-pixels"],
+      "inputs": [
+        {"role": "candidate", "path": "limits/large-solid.png", "sha256": "b2e07fcf29bd711820120185bc0ce15a45352ce765eafff1d2d5cbe011328b3b", "bytes": 58872, "width": 4096, "height": 4096, "decodedPixels": 16777216, "alpha": false}
+      ],
+      "expected": {"classification": "valid-or-limit-rejection", "engineInvocation": false}
+    },
+    {
+      "id": "corrupt-truncated-png",
+      "tags": ["corrupt", "truncated", "isolation"],
+      "inputs": [
+        {"role": "candidate", "path": "corrupt/truncated.png", "sha256": "03ea91079c29f7f24c059623dae6c938fce36d848eac4578521a0adaaaf5cd2e", "bytes": 128, "declaredContentType": "image/png"}
+      ],
+      "expected": {"classification": "decode-error", "processSurvives": true}
+    },
+    {
+      "id": "corrupt-non-image",
+      "tags": ["corrupt", "wrong-format", "isolation"],
+      "inputs": [
+        {"role": "candidate", "path": "corrupt/not-an-image.bin", "sha256": "c1b6ea51e818b4e19c735c342ec85c94c104c0ace11fe2330dbd61fd577c0f2b", "bytes": 66, "declaredContentType": "image/png"}
+      ],
+      "expected": {"classification": "decode-error", "processSurvives": true}
+    }
+  ]
+}
