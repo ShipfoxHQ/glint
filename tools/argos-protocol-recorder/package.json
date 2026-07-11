@@ -1,0 +1,20 @@
+{
+  "name": "@glint/argos-protocol-recorder",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Disposable recorder for the pinned Argos producer protocol",
+  "scripts": {
+    "check": "node --check src/recorder.mjs && node --check src/run-recordings.mjs && node --check test/recordings.test.mjs",
+    "record": "node src/run-recordings.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@argos-ci/cli": "5.0.5",
+    "@argos-ci/playwright": "7.0.6",
+    "@argos-ci/storybook": "6.0.7"
+  },
+  "engines": {
+    "node": "24.17.0"
+  }
+}

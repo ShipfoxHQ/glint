@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "scenario": "cli-skipped",
+  "producer": {
+    "name": "@argos-ci/cli",
+    "version": "5.0.5"
+  },
+  "expectedFailure": false,
+  "result": {
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": "- Creating skipped build\n✔ Build created: http://127.0.0.1.invalid/builds/build-cli-skipped"
+  },
+  "exchanges": [
+    {
+      "sequence": 1,
+      "request": {
+        "method": "POST",
+        "path": "/v2/builds",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "content-type": "application/json",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-1>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": {
+          "commit": "1111111111111111111111111111111111111111",
+          "branch": "recording-branch",
+          "name": "cli-skipped",
+          "mode": null,
+          "prNumber": null,
+          "prHeadCommit": null,
+          "referenceBranch": null,
+          "referenceCommit": null,
+          "argosSdk": "@argos-ci/core@6.1.1",
+          "ciProvider": "git",
+          "runId": null,
+          "runAttempt": null,
+          "skipped": true,
+          "screenshots": [],
+          "pwTraceKeys": [],
+          "parentCommits": []
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "build": {
+            "id": "build-cli-skipped",
+            "status": "skipped",
+            "url": "http://127.0.0.1.invalid/builds/build-cli-skipped"
+          }
+        }
+      }
+    }
+  ]
+}

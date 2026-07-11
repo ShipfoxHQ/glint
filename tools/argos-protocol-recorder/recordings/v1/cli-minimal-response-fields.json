@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "scenario": "cli-minimal-response-fields",
+  "producer": {
+    "name": "@argos-ci/cli",
+    "version": "5.0.5"
+  },
+  "expectedFailure": false,
+  "result": {
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": "- Uploading screenshots\n✔ Build created: http://127.0.0.1.invalid/builds/build-cli-minimal-response-fields"
+  },
+  "exchanges": [
+    {
+      "sequence": 1,
+      "request": {
+        "method": "GET",
+        "path": "/v2/project",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-1>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "hasRemoteContentAccess": true
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "request": {
+        "method": "POST",
+        "path": "/v2/builds",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "content-type": "application/json",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-2>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": {
+          "commit": "1111111111111111111111111111111111111111",
+          "branch": "recording-branch",
+          "name": "cli-minimal-response-fields",
+          "mode": "ci",
+          "parallel": false,
+          "parallelNonce": null,
+          "screenshots": [
+            {
+              "key": "aa653565b03bd05eba2abfec8befe20b2c4dcd49fd42b4d8f0441b7d389cf1c9",
+              "contentType": "image/png"
+            }
+          ],
+          "pwTraceKeys": [],
+          "prNumber": null,
+          "prHeadCommit": null,
+          "referenceBranch": null,
+          "referenceCommit": null,
+          "parentCommits": null,
+          "argosSdk": "@argos-ci/core@6.1.1",
+          "ciProvider": "git",
+          "runId": null,
+          "runAttempt": null,
+          "mergeQueue": false,
+          "mergeQueuePrNumbers": null,
+          "subset": false
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "build": {
+            "id": "build-cli-minimal-response-fields"
+          },
+          "screenshots": [],
+          "pwTraces": []
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "request": {
+        "method": "PUT",
+        "path": "/v2/builds/build-cli-minimal-response-fields",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "content-type": "application/json",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-3>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": {
+          "screenshots": [
+            {
+              "key": "aa653565b03bd05eba2abfec8befe20b2c4dcd49fd42b4d8f0441b7d389cf1c9",
+              "name": "fixture-01.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            }
+          ],
+          "parallel": false,
+          "parallelTotal": null,
+          "parallelIndex": null
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "build": {
+            "url": "http://127.0.0.1.invalid/builds/build-cli-minimal-response-fields"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,413 @@
+{
+  "schemaVersion": 1,
+  "scenario": "cli-parallel-manual-finalize",
+  "producer": {
+    "name": "@argos-ci/cli",
+    "version": "5.0.5"
+  },
+  "expectedFailure": false,
+  "result": {
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": "- Finalizing builds\n✔ Builds finalized: http://127.0.0.1.invalid/builds/build-cli-parallel-manual-finalize"
+  },
+  "exchanges": [
+    {
+      "sequence": 1,
+      "request": {
+        "method": "GET",
+        "path": "/v2/project",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-1>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "id": "project-recording",
+          "account": {
+            "id": "account-recording",
+            "slug": "recording"
+          },
+          "name": "Argos protocol recording",
+          "defaultBaseBranch": "main",
+          "hasRemoteContentAccess": true
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "request": {
+        "method": "POST",
+        "path": "/v2/builds",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "content-type": "application/json",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-2>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": {
+          "commit": "1111111111111111111111111111111111111111",
+          "branch": "recording-branch",
+          "name": "cli-parallel-manual-finalize",
+          "mode": "ci",
+          "parallel": true,
+          "parallelNonce": "recording-parallel-nonce",
+          "screenshots": [
+            {
+              "key": "68038cc25f2bf775277074d58100ce5283fd3ccb9977d6485253f926fc4703d5",
+              "contentType": "image/png"
+            }
+          ],
+          "pwTraceKeys": [],
+          "prNumber": null,
+          "prHeadCommit": null,
+          "referenceBranch": null,
+          "referenceCommit": null,
+          "parentCommits": null,
+          "argosSdk": "@argos-ci/core@6.1.1",
+          "ciProvider": "git",
+          "runId": null,
+          "runAttempt": null,
+          "mergeQueue": false,
+          "mergeQueuePrNumbers": null,
+          "subset": false
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "build": {
+            "id": "build-cli-parallel-manual-finalize",
+            "status": "changed",
+            "url": "http://127.0.0.1.invalid/builds/build-cli-parallel-manual-finalize"
+          },
+          "screenshots": [
+            {
+              "key": "68038cc25f2bf775277074d58100ce5283fd3ccb9977d6485253f926fc4703d5",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            }
+          ],
+          "pwTraces": []
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/68038cc25f2bf775277074d58100ce5283fd3ccb9977d6485253f926fc4703d5",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "68038cc25f2bf775277074d58100ce5283fd3ccb9977d6485253f926fc4703d5"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 4,
+      "request": {
+        "method": "PUT",
+        "path": "/v2/builds/build-cli-parallel-manual-finalize",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "content-type": "application/json",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-3>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": {
+          "screenshots": [
+            {
+              "key": "68038cc25f2bf775277074d58100ce5283fd3ccb9977d6485253f926fc4703d5",
+              "name": "fixture-01.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            }
+          ],
+          "parallel": true,
+          "parallelTotal": 2,
+          "parallelIndex": 1
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "build": {
+            "id": "build-cli-parallel-manual-finalize",
+            "status": "changed",
+            "url": "http://127.0.0.1.invalid/builds/build-cli-parallel-manual-finalize"
+          }
+        }
+      }
+    },
+    {
+      "sequence": 5,
+      "request": {
+        "method": "GET",
+        "path": "/v2/project",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-4>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "id": "project-recording",
+          "account": {
+            "id": "account-recording",
+            "slug": "recording"
+          },
+          "name": "Argos protocol recording",
+          "defaultBaseBranch": "main",
+          "hasRemoteContentAccess": true
+        }
+      }
+    },
+    {
+      "sequence": 6,
+      "request": {
+        "method": "POST",
+        "path": "/v2/builds",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "content-type": "application/json",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-5>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": {
+          "commit": "1111111111111111111111111111111111111111",
+          "branch": "recording-branch",
+          "name": "cli-parallel-manual-finalize",
+          "mode": "ci",
+          "parallel": true,
+          "parallelNonce": "recording-parallel-nonce",
+          "screenshots": [
+            {
+              "key": "2ccae2ba876e846273a8ba29336fef772c7151633f7122b5c6ed62b5845036ed",
+              "contentType": "image/png"
+            }
+          ],
+          "pwTraceKeys": [],
+          "prNumber": null,
+          "prHeadCommit": null,
+          "referenceBranch": null,
+          "referenceCommit": null,
+          "parentCommits": null,
+          "argosSdk": "@argos-ci/core@6.1.1",
+          "ciProvider": "git",
+          "runId": null,
+          "runAttempt": null,
+          "mergeQueue": false,
+          "mergeQueuePrNumbers": null,
+          "subset": false
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "build": {
+            "id": "build-cli-parallel-manual-finalize",
+            "status": "changed",
+            "url": "http://127.0.0.1.invalid/builds/build-cli-parallel-manual-finalize"
+          },
+          "screenshots": [
+            {
+              "key": "2ccae2ba876e846273a8ba29336fef772c7151633f7122b5c6ed62b5845036ed",
+              "postUrl": "<signed-upload-url>",
+              "fields": {
+                "key": "<redacted-signed-field:key>",
+                "policy": "<redacted-signed-field:policy>",
+                "x-amz-algorithm": "<redacted-signed-field:x-amz-algorithm>",
+                "x-amz-credential": "<redacted-signed-field:x-amz-credential>",
+                "x-amz-date": "<redacted-signed-field:x-amz-date>",
+                "x-amz-signature": "<redacted-signed-field:x-amz-signature>",
+                "Content-Type": "image/png"
+              }
+            }
+          ],
+          "pwTraces": []
+        }
+      }
+    },
+    {
+      "sequence": 7,
+      "request": {
+        "method": "POST",
+        "path": "/signed-upload/2ccae2ba876e846273a8ba29336fef772c7151633f7122b5c6ed62b5845036ed",
+        "headers": {
+          "accept": "*/*",
+          "content-type": "multipart/form-data; boundary=<multipart-boundary>",
+          "user-agent": "node"
+        },
+        "body": {
+          "fields": {
+            "key": "<redacted:key>",
+            "policy": "<redacted:policy>",
+            "x-amz-algorithm": "<redacted:x-amz-algorithm>",
+            "x-amz-credential": "<redacted:x-amz-credential>",
+            "x-amz-date": "<redacted:x-amz-date>",
+            "x-amz-signature": "<redacted:x-amz-signature>",
+            "Content-Type": "image/png"
+          },
+          "file": {
+            "field": "file",
+            "filename": "<generated-upload-filename>",
+            "contentType": "image/png",
+            "size": 91,
+            "sha256": "2ccae2ba876e846273a8ba29336fef772c7151633f7122b5c6ed62b5845036ed"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {},
+        "body": null
+      }
+    },
+    {
+      "sequence": 8,
+      "request": {
+        "method": "PUT",
+        "path": "/v2/builds/build-cli-parallel-manual-finalize",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "content-type": "application/json",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-6>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": {
+          "screenshots": [
+            {
+              "key": "2ccae2ba876e846273a8ba29336fef772c7151633f7122b5c6ed62b5845036ed",
+              "name": "fixture-01.png",
+              "metadata": null,
+              "pwTraceKey": null,
+              "threshold": null,
+              "baseName": null,
+              "parentName": null,
+              "contentType": "image/png"
+            }
+          ],
+          "parallel": true,
+          "parallelTotal": 2,
+          "parallelIndex": 2
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "build": {
+            "id": "build-cli-parallel-manual-finalize",
+            "status": "changed",
+            "url": "http://127.0.0.1.invalid/builds/build-cli-parallel-manual-finalize"
+          }
+        }
+      }
+    },
+    {
+      "sequence": 9,
+      "request": {
+        "method": "POST",
+        "path": "/v2/builds/finalize",
+        "headers": {
+          "accept": "*/*",
+          "authorization": "Bearer <redacted:40-character-token>",
+          "content-type": "application/json",
+          "user-agent": "node",
+          "x-argos-request-id": "<request-id-7>",
+          "x-argos-retry-attempt": "0"
+        },
+        "body": {
+          "parallelNonce": "recording-parallel-nonce"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "builds": [
+            {
+              "id": "build-cli-parallel-manual-finalize",
+              "status": "changed",
+              "url": "http://127.0.0.1.invalid/builds/build-cli-parallel-manual-finalize"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
