@@ -1,0 +1,61 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    ".dependency-cruiser.cjs",
+    "biome.json",
+    "mise.lock",
+    "mise.toml",
+    "pnpm-lock.yaml"
+  ],
+  "tasks": {
+    "build": {
+      "cache": true,
+      "outputs": ["dist/**/*", "!dist/**/*.d.ts", "!dist/**/*.d.ts.map"],
+      "dependsOn": ["^build"]
+    },
+    "check": {
+      "cache": true
+    },
+    "type": {
+      "cache": true,
+      "dependsOn": ["^type:emit"]
+    },
+    "type:emit": {
+      "cache": true,
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!test/**",
+        "!tsconfig.test.json",
+        "!vitest.config.ts"
+      ],
+      "outputs": ["dist/**/*.d.ts", "dist/**/*.d.ts.map"],
+      "dependsOn": ["type", "^type:emit"]
+    },
+    "test": {
+      "cache": true,
+      "dependsOn": ["^build", "build"]
+    },
+    "test:e2e": {
+      "cache": false,
+      "dependsOn": ["^build"]
+    },
+    "depcruise": {
+      "cache": true,
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.dependency-cruiser.cjs"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build"],
+      "passThroughEnv": ["HOST", "PORT", "VITE_*"]
+    },
+    "image": {
+      "cache": false,
+      "dependsOn": ["build"],
+      "env": ["BUILD_NUMBER", "NODE_VERSION", "PNPM_VERSION"],
+      "passThroughEnv": ["IMAGE_REGISTRIES"]
+    }
+  }
+}

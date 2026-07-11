@@ -1,0 +1,45 @@
+min_version = "2026.5.18"
+
+[tools]
+node = "24.17.0"
+"npm:pnpm" = "11.7.0"
+"npm:turbo" = "2.9.18"
+
+[env]
+_.path = ["{{config_root}}/node_modules/.bin"]
+
+[settings]
+lockfile = true
+minimum_release_age = "48h"
+
+[tasks.bootstrap]
+description = "Install the pinned workspace dependencies"
+run = "pnpm install --frozen-lockfile"
+
+[tasks.build]
+description = "Build all workspace packages"
+run = "turbo build"
+
+[tasks.check]
+description = "Check formatting and lint rules"
+run = "turbo check"
+
+[tasks.type]
+description = "Type-check all workspace packages"
+run = "turbo type"
+
+[tasks."type:emit"]
+description = "Emit declarations for all workspace packages"
+run = "turbo type:emit"
+
+[tasks.test]
+description = "Run all workspace tests"
+run = "turbo test"
+
+[tasks.depcruise]
+description = "Check workspace dependency graphs"
+run = "turbo depcruise"
+
+[tasks.verify]
+description = "Run every local workspace quality gate"
+run = "turbo check type type:emit build test depcruise"
