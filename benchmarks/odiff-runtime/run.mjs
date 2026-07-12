@@ -99,6 +99,32 @@ export function runtimeExitIsSafe(testCase, exitCode) {
   return exitCode === 0 || exitCode === 21 || exitCode === 22;
 }
 
+export function parsePositiveInteger(value, name) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return parsed;
+}
+
+function killProcessTree(child) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
+  try {
+    if (process.platform === 'win32') {
+      child.kill('SIGKILL');
+    } else {
+      process.kill(-child.pid, 'SIGKILL');
+    }
+  } catch (error) {
+    if (error.code !== 'ESRCH') {
+      throw error;
+    }
+  }
+}
+
 async function runProcess({args, outputDirectory, timeoutMs, timeFile}) {
   const command = process.platform === 'linux' ? '/usr/bin/time' : 'odiff';
   const commandArgs =
@@ -111,7 +137,10 @@ async function runProcess({args, outputDirectory, timeoutMs, timeFile}) {
   let peakOutputBytes = await directoryBytes(outputDirectory);
   const startedNs = process.hrtime.bigint();
 
-  const child = spawn(command, commandArgs, {stdio: ['ignore', 'pipe', 'pipe']});
+  const child = spawn(command, commandArgs, {
+    detached: process.platform !== 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   child.stdout.setEncoding('utf8');
   child.stderr.setEncoding('utf8');
   child.stdout.on('data', (chunk) => {
@@ -129,7 +158,7 @@ async function runProcess({args, outputDirectory, timeoutMs, timeFile}) {
   let timedOut = false;
   const timeout = setTimeout(() => {
     timedOut = true;
-    child.kill('SIGKILL');
+    killProcessTree(child);
   }, timeoutMs);
   timeout.unref();
 
@@ -144,7 +173,16 @@ async function runProcess({args, outputDirectory, timeoutMs, timeFile}) {
 
   let resourceUsage = null;
   if (process.platform === 'linux') {
-    resourceUsage = parseTimeMetrics(await readFile(timeFile, 'utf8'));
+    try {
+      const timeMetrics = await readFile(timeFile, 'utf8');
+      if (timeMetrics.trim()) {
+        resourceUsage = parseTimeMetrics(timeMetrics);
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT' || !timedOut) {
+        throw error;
+      }
+    }
   }
 
   return {
@@ -260,8 +298,14 @@ export async function main() {
   const outputDirectory = process.env.GLINT_BENCH_OUTPUT_DIR ?? DEFAULT_OUTPUT;
   const profile = process.env.GLINT_BENCH_PROFILE ?? 'local';
   const mode = process.env.GLINT_BENCH_MODE ?? 'suite';
-  const timeoutMs = Number(process.env.GLINT_BENCH_TIMEOUT_MS ?? 10_000);
-  const iterations = Number(process.env.GLINT_BENCH_ITERATIONS ?? 5);
+  const timeoutMs = parsePositiveInteger(
+    process.env.GLINT_BENCH_TIMEOUT_MS ?? 10_000,
+    'GLINT_BENCH_TIMEOUT_MS',
+  );
+  const iterations = parsePositiveInteger(
+    process.env.GLINT_BENCH_ITERATIONS ?? 5,
+    'GLINT_BENCH_ITERATIONS',
+  );
 
   await mkdir(outputDirectory, {recursive: true});
   const manifest = JSON.parse(await readFile(path.join(corpusDirectory, 'manifest.json'), 'utf8'));

@@ -55,6 +55,9 @@ peak memory, disk use, exit status, and whether the process behaved safely.
 Malformed-image tests pass only when ODiff reports an error and the harness
 continues running the remaining cases.
 
+The summary's `records` value counts completed checks and comparisons. It does
+not include the environment header or the summary itself.
+
 ## Reproduce the busiest burst
 
 The largest modeled burst contains 143 operations: 126 file checks and 17
@@ -90,8 +93,8 @@ gcloud run deploy glint-odiff-benchmark \
   --cpu 1 \
   --memory 512Mi \
   --concurrency 1 \
-  --min 0 \
-  --max 143 \
+  --min-instances 0 \
+  --max-instances 143 \
   --timeout 10s \
   --no-cpu-boost \
   --no-allow-unauthenticated \

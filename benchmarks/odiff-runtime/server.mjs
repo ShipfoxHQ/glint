@@ -5,15 +5,35 @@ import process from 'node:process';
 const ENGINE_VERSION = '4.3.8';
 const port = Number(process.env.PORT ?? 8080);
 const childTimeoutMs = Number(process.env.GLINT_BENCH_CHILD_TIMEOUT_MS ?? 9_000);
+const profile = process.env.GLINT_BENCH_PROFILE ?? 'local';
 
 function emit(record) {
-  process.stdout.write(`${JSON.stringify(record)}\n`);
+  process.stdout.write(`${JSON.stringify({...record, profile})}\n`);
+}
+
+function killProcessTree(child) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
+  try {
+    if (process.platform === 'win32') {
+      child.kill('SIGKILL');
+    } else {
+      process.kill(-child.pid, 'SIGKILL');
+    }
+  } catch (error) {
+    if (error.code !== 'ESRCH') {
+      throw error;
+    }
+  }
 }
 
 function runIsolated(overrides) {
   return new Promise((resolve, reject) => {
     const startedNs = process.hrtime.bigint();
     const child = spawn(process.execPath, ['/benchmark/run.mjs'], {
+      detached: process.platform !== 'win32',
       env: {...process.env, ...overrides},
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -31,7 +51,7 @@ function runIsolated(overrides) {
     let timedOut = false;
     const timeout = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGKILL');
+      killProcessTree(child);
     }, childTimeoutMs);
     timeout.unref();
 

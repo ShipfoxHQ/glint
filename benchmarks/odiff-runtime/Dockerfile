@@ -1,4 +1,5 @@
-FROM node:24.17.0-bookworm-slim
+ARG BENCHMARK_PLATFORM=linux/amd64
+FROM --platform=${BENCHMARK_PLATFORM} node:24.17.0-bookworm-slim
 
 ARG ODIFF_VERSION=4.3.8
 

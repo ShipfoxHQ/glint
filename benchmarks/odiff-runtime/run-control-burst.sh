@@ -17,6 +17,7 @@ seq 0 142 | xargs -P "$parallelism" -n 1 sh -c '
     --tmpfs /tmp:rw,noexec,nosuid,size=64m \
     --env GLINT_BENCH_MODE=task \
     --env GLINT_BENCH_TASK_INDEX="$task_index" \
-    --env GLINT_BENCH_PROFILE=oci-control-burst \
+    --env GLINT_BENCH_PROFILE=oci-control-1cpu-512mib \
+    --env GLINT_BENCH_ITERATIONS=5 \
     "$image"
 ' glint-odiff-task "$image"

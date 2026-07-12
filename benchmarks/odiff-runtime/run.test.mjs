@@ -4,7 +4,12 @@ import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
 
-import {expectedExitCode, runtimeExitIsSafe, selectBurstWork} from './run.mjs';
+import {
+  expectedExitCode,
+  parsePositiveInteger,
+  runtimeExitIsSafe,
+  selectBurstWork,
+} from './run.mjs';
 
 const corpusDirectory = fileURLToPath(new URL('../corpus/v1', import.meta.url));
 const manifest = JSON.parse(await readFile(path.join(corpusDirectory, 'manifest.json'), 'utf8'));
@@ -39,6 +44,14 @@ test('models the observed 143-job burst as 126 checks and 17 diffs', () => {
 test('rejects task indexes outside the measured burst', () => {
   assert.throws(() => selectBurstWork(-1, manifest));
   assert.throws(() => selectBurstWork(143, manifest));
+});
+
+test('requires benchmark iteration and timeout settings to be positive integers', () => {
+  assert.equal(parsePositiveInteger('5', 'iterations'), 5);
+  assert.throws(() => parsePositiveInteger('0', 'iterations'), /positive integer/);
+  assert.throws(() => parsePositiveInteger('-1', 'iterations'), /positive integer/);
+  assert.throws(() => parsePositiveInteger('1.5', 'iterations'), /positive integer/);
+  assert.throws(() => parsePositiveInteger('invalid', 'iterations'), /positive integer/);
 });
 
 test('separates runtime safety from engine-quality classification', () => {
