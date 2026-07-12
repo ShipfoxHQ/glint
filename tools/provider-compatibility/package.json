@@ -1,0 +1,20 @@
+{
+  "name": "@glint/provider-compatibility",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Executable compatibility checks for selected infrastructure providers",
+  "scripts": {
+    "check": "node --check src/s3-multipart-post.mjs && node --check test/s3-multipart-post.test.mjs",
+    "test": "node --test",
+    "verify:s3": "node src/s3-multipart-post.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.901.0",
+    "@aws-sdk/s3-request-presigner": "^3.901.0",
+    "@aws-sdk/s3-presigned-post": "^3.901.0"
+  },
+  "engines": {
+    "node": "24.17.0"
+  }
+}

@@ -165,12 +165,44 @@ first instance. Pair the service with Tigris or R2 to avoid storage-side egress.
 
 ### AWS Lambda
 
-Lambda needs a small platform-specific image variant. Add the AWS Runtime
-Interface Client and a handler that runs one file check or ODiff child process
-per invocation. Keep the corpus, ODiff version, limits, and result format
-unchanged.
+The approved runtime decision selects an AWS Node.js 24 x86_64 Lambda
+container. Build its deployment-compatible benchmark image with AWS's local
+Runtime Interface Emulator:
 
-Benchmark at 512 MB and 1 GB with 512 MB of temporary storage. Invoke all 143
-tasks concurrently and record cold starts, throttling, memory, and billed
-duration. Test Lambda with S3 in the same region so the result includes the
-transfer advantage of that pairing.
+```sh
+docker buildx build \
+  --platform linux/amd64 \
+  --provenance=false \
+  --load \
+  --file benchmarks/odiff-runtime/Dockerfile.lambda \
+  --tag glint-odiff-lambda:4.3.8 \
+  .
+```
+
+Run it with the selected 1 GiB memory and 512 MiB ephemeral-storage profile:
+
+```sh
+docker run --rm \
+  --platform linux/amd64 \
+  --memory 1g \
+  --cpus 1 \
+  --pids-limit 64 \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=512m \
+  --publish 9000:8080 \
+  glint-odiff-lambda:4.3.8
+```
+
+Invoke the full corpus from another shell:
+
+```sh
+curl --silent --show-error \
+  http://localhost:9000/2015-03-31/functions/function/invocations \
+  --data '{"mode":"suite"}' \
+  > benchmarks/odiff-runtime/results/lambda-container-suite.json
+```
+
+The returned summary must have `passed: true`. A managed-Lambda run with the
+same image, SQS event source, and 143-job burst remains a staging acceptance
+check because the local emulator cannot measure AWS cold starts or queue
+admission.

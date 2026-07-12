@@ -1,0 +1,22 @@
+FROM public.ecr.aws/lambda/nodejs:24
+
+ARG ODIFF_VERSION=4.3.8
+
+RUN dnf install --assumeyes time \
+  && npm install --global "odiff-bin@${ODIFF_VERSION}" \
+  && odiff --version \
+  && npm cache clean --force \
+  && dnf clean all
+
+COPY benchmarks/corpus/v1 ${LAMBDA_TASK_ROOT}/corpus
+COPY benchmarks/odiff-runtime/process-control.mjs ${LAMBDA_TASK_ROOT}/process-control.mjs
+COPY benchmarks/odiff-runtime/run.mjs ${LAMBDA_TASK_ROOT}/run.mjs
+COPY benchmarks/odiff-runtime/lambda-handler.mjs ${LAMBDA_TASK_ROOT}/lambda-handler.mjs
+
+ENV GLINT_BENCH_CORPUS=${LAMBDA_TASK_ROOT}/corpus \
+  GLINT_BENCH_OUTPUT_DIR=/tmp/glint-odiff-benchmark \
+  GLINT_BENCH_PROFILE=lambda-node24-x86_64-1gib \
+  GLINT_BENCH_TIMEOUT_MS=5000 \
+  GLINT_BENCH_ITERATIONS=5
+
+CMD ["lambda-handler.handler"]

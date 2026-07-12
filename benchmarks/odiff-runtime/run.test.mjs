@@ -41,6 +41,15 @@ test('models the observed 143-job burst as 126 checks and 17 diffs', () => {
   );
 });
 
+test('includes square and tall fixtures at the decoded-pixel boundary', () => {
+  const boundaryInputs = manifest.cases
+    .flatMap((testCase) => testCase.inputs)
+    .filter((input) => input.decodedPixels === 16_777_216);
+
+  assert.ok(boundaryInputs.some(({width, height}) => width === 4_096 && height === 4_096));
+  assert.ok(boundaryInputs.some(({width, height}) => width === 1_024 && height === 16_384));
+});
+
 test('rejects task indexes outside the measured burst', () => {
   assert.throws(() => selectBurstWork(-1, manifest));
   assert.throws(() => selectBurstWork(143, manifest));

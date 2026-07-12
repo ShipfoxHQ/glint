@@ -98,8 +98,9 @@ pixel values cover all 178 new screenshots.
 
 The mean stored size was 40,897 bytes. The expected cost model uses that value.
 The stress model uses P95 instead. Neither value is a decoder safety limit. The
-test set also has a 1,200×4,000 long page. It has a 4,096×4,096 image that is
-small on disk. Worker tests can use them to measure memory and error isolation.
+test set also has a 1,200×4,000 long page plus 4,096×4,096 and 1,024×16,384
+images that are small on disk. Worker tests use them to measure memory, maximum
+height, and error isolation at the 16,777,216-pixel boundary.
 
 ## Monthly scenarios and burst envelope
 

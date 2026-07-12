@@ -1,10 +1,14 @@
 # ODiff worker performance, hosting, and storage
 
-The local container benchmark passed. It proves that ODiff can run safely in a
-small isolated container, but it does not yet choose a hosting provider.
+> This is the worker-runtime candidate report. The approved decision selects AWS Lambda x86
+> container workers with Amazon S3 and SQS; see the
+> [image comparison worker decision](../decisions/image-comparison-worker.md) and the
+> [reference topology](../deployment/reference-topology.md). The safety measurements below remain
+> the selection evidence. Managed-Lambda cold/burst measurements are a staging gate.
 
-Cloud Run, Cloudflare Containers, Koyeb, and AWS Lambda are all credible hosted
-options. They need the same image corpus and burst test before we choose one.
+The local container benchmark passed. It proves that ODiff can run safely in a
+small isolated container. The architecture decision selects AWS Lambda; the other providers below
+remain comparison evidence rather than supported deployment recipes.
 
 Prices in this document were checked on July 11, 2026. They are planning
 estimates, not quotes.
@@ -17,6 +21,8 @@ ODiff runs comfortably when a container processes one comparison at a time.
   inputs completed without a timeout or container crash.
 - The largest image was 4,096 × 4,096 pixels. Comparing it used about 194 MiB
   of memory and took 421 ms in the slowest local run.
+- The 1,024 × 16,384 height-boundary fixture used about 194 MiB and completed in
+  350 ms in the Lambda-compatible image.
 - A 1,200 × 4,000 long screenshot used about 57 MiB and took 178 ms in the
   slowest run.
 - Malformed files stopped only the ODiff child process. The surrounding HTTP
@@ -215,7 +221,8 @@ Every hosted runtime should start with the same safety policy:
 | --- | ---: | --- |
 | Encoded file size | 8 MiB per image | More than 50 times the largest observed production image; reject larger files before decoding. |
 | Decoded image size | 16,777,216 pixels | The tested 4,096² image used about 194 MiB. |
-| Width or height | 4,096 pixels | Covers both the tested square image and the 4,000-pixel-long page. |
+| Width | 4,096 pixels | Covers the tested square image and common desktop screenshots. |
+| Height | 16,384 pixels | Covers the tested tall-page boundary while the decoded-pixel limit prevents a 4,096 × 16,384 allocation. |
 | Different dimensions | Return a layout change | ODiff identifies this without generating a mask. |
 | ODiff execution | 5 seconds | More than 12 times the slowest local comparison. |
 | Whole request | 10 seconds | Leaves time to turn a killed child into a clear error response. |

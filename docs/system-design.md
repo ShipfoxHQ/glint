@@ -934,17 +934,31 @@ Core code targets portable services:
 - at-least-once queue;
 - OCI-compatible diff worker image containing the pinned ODiff binary.
 
-Portability means stable interfaces and avoiding provider types in core. MVP implements exactly one production database/blob/queue/worker stack selected by ADR plus lightweight local test adapters; it does not build and maintain multiple cloud integrations.
+Portability means stable interfaces and avoiding provider types in core. The MVP implements exactly
+one production stack plus lightweight local test adapters; it does not build and maintain multiple
+cloud integrations.
 
-Recommended managed reference deployment:
+The approved managed reference deployment uses:
 
-- serverless web/API runtime;
-- managed serverless PostgreSQL;
-- Cloudflare R2 or equivalent S3-compatible storage;
-- managed queue;
-- scale-to-zero/serverless container or Lambda-style worker for native image diffing.
+- a React and Vite client on Vercel;
+- a Fastify ZIP on the managed AWS Lambda Node.js runtime behind API Gateway;
+- Neon PostgreSQL in Frankfurt with pooled application and direct migration endpoints;
+- private Amazon S3 storage with signed uploads and reads;
+- Amazon SQS Standard with a dead-letter queue; and
+- an x86 Lambda container containing ODiff for image verification and comparison.
 
-The exact provider combination remains an ADR after traffic measurement. Avoid choosing a pure edge runtime for the diff worker until ODiff/native-process and decoded-image memory requirements are proven. Local development uses PostgreSQL, MinIO or a filesystem blob adapter, and an in-process/local queue; it should not require Redis, RabbitMQ, or DynamoDB.
+The API and worker scale to zero and do not join a customer-managed VPC. Terraform-compatible
+infrastructure and release manifests live in a separate private repository. The complete settings,
+safety limits, and deployment order are in the
+[reference deployment](deployment/reference-topology.md).
+
+Versioned GitHub Releases distribute attested API and migration ZIPs, while GitHub Container
+Registry distributes the attested worker image. Private deployments copy those verified artifacts
+into versioned S3 storage and same-region ECR before promoting Lambda and Vercel releases.
+
+Local development uses PostgreSQL, MinIO, an in-process queue, Fastify listening directly on
+Node.js, and the same worker image through Lambda's local emulator. It does not require cloud
+credentials, Redis, RabbitMQ, or DynamoDB.
 
 ## Reliability and failure behavior
 
@@ -1249,15 +1263,11 @@ Suggested milestones:
 
 ## Open questions
 
-1. Which managed reference deployment should the first ADR select for API, PostgreSQL, queue, and diff workers?
-2. What are the measured weekly snapshot count, unique optimized hashes/bytes, peak build concurrency, and size distribution?
-3. Does the E0 recorder show that the pinned Argos versions require any endpoints or signed-upload behavior beyond the proposed compatibility subset?
-4. Which GitHub ruleset configuration will the cutover runbook verify to enforce the no-direct-push prerequisite?
-5. What retention duration is useful for superseded PR builds: 14, 30, or 90 days?
-6. When E8 enables public projects, should visibility still start private or optionally inherit a public GitHub repository?
-7. MIT or Apache-2.0 for Glint, and how should reused Argos contract knowledge be attributed?
-8. Which published Shipfox Node packages should Glint consume versus implement locally to keep the OSS dependency graph stable?
-9. Should future public SDK packages use an available `@glint/*` scope or a Shipfox-owned scope while internal workspace packages remain private?
+1. What are the measured weekly snapshot count, unique optimized hashes/bytes, peak build concurrency, and size distribution?
+2. Do the protocol recordings show that the pinned Argos versions require endpoints or signed-upload behavior beyond the proposed compatibility subset?
+3. Which GitHub ruleset configuration will the cutover runbook verify to enforce the no-direct-push prerequisite?
+4. When public projects are implemented, should visibility still start private or optionally inherit a public GitHub repository?
+5. Should future public client packages use an available `@glint/*` scope or a Shipfox-owned scope while internal workspace packages remain private?
 
 ## Dependencies
 

@@ -12,7 +12,7 @@ errors.
 - transparent images;
 - images with different dimensions;
 - a noisy image that is harder to compress;
-- a small PNG that opens into 16.8 million pixels; and
+- square and tall PNGs that each open into 16.8 million pixels; and
 - a truncated PNG and a non-image file for error handling.
 
 The set defines its inputs and basic results. It does not lock one diff
