@@ -1,0 +1,4 @@
+{"recordType":"service-ready","port":8080,"odiffVersion":"4.3.8","pid":1,"profile":"oci-control-1cpu-512mib"}
+{"recordType":"service-health","ok":true,"odiffVersion":"4.3.8","profile":"oci-control-1cpu-512mib"}
+{"recordType":"service-invocation","path":"/suite","passed":true,"code":0,"signal":null,"timedOut":false,"durationMs":4890.178327,"stderr":"","profile":"oci-control-1cpu-512mib"}
+{"recordType":"service-health","ok":true,"odiffVersion":"4.3.8","profile":"oci-control-1cpu-512mib"}
