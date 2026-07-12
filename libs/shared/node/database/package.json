@@ -34,6 +34,7 @@
     "check": "shipfox-biome-check",
     "depcruise": "shipfox-depcruise",
     "test": "shipfox-vitest-run",
+    "test:postgres": "GLINT_POSTGRES_TEST=1 shipfox-vitest-run",
     "type": "shipfox-tsc-check",
     "type:emit": "shipfox-tsc-emit"
   },
@@ -49,5 +50,12 @@
   "glint": {
     "packageType": "shared-node",
     "environment": "node"
+  },
+  "dependencies": {
+    "@glint/node-config": "workspace:*",
+    "@glint/node-observability": "workspace:*",
+    "@shipfox/node-drizzle": "0.2.0",
+    "@shipfox/node-postgres": "0.4.0",
+    "drizzle-orm": "^0.45.2"
   }
 }

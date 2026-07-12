@@ -1,5 +1,10 @@
 import type {Database, DatabaseHealth, DatabaseTransaction, TransactionOptions} from './types.js';
-import {ReadOnlyTransactionError, StatementTimeoutError, TransactionStateError} from './types.js';
+import {
+  ReadOnlyTransactionError,
+  StatementTimeoutError,
+  TransactionStateError,
+  validateTransactionOptions,
+} from './types.js';
 
 const deleted = Symbol('deleted');
 type PendingValue = unknown | typeof deleted;
@@ -24,6 +29,7 @@ export class InMemoryDatabase implements Database {
     operation: (transaction: DatabaseTransaction) => Promise<T>,
     options: TransactionOptions = {},
   ): Promise<T> {
+    validateTransactionOptions(options);
     const transactionOptions = structuredClone(options);
     const snapshot =
       transactionOptions.isolation && transactionOptions.isolation !== 'read-committed'

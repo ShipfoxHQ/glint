@@ -32,6 +32,45 @@ export interface Database {
   health(): Promise<DatabaseHealth>;
 }
 
+const MAX_POSTGRES_STATEMENT_TIMEOUT_MS = 2_147_483_647;
+
+export function validateTransactionOptions(options: TransactionOptions): void {
+  if (
+    options.statementTimeoutMs !== undefined &&
+    (!Number.isInteger(options.statementTimeoutMs) ||
+      options.statementTimeoutMs < 1 ||
+      options.statementTimeoutMs > MAX_POSTGRES_STATEMENT_TIMEOUT_MS)
+  ) {
+    throw new Error(
+      `statementTimeoutMs must be an integer between 1 and ${MAX_POSTGRES_STATEMENT_TIMEOUT_MS}.`,
+    );
+  }
+  const isolation: unknown = options.isolation;
+  if (
+    isolation !== undefined &&
+    isolation !== 'read-committed' &&
+    isolation !== 'repeatable-read' &&
+    isolation !== 'serializable'
+  ) {
+    throw new Error(
+      'Transaction isolation must be read-committed, repeatable-read, or serializable.',
+    );
+  }
+  const readOnly: unknown = options.readOnly;
+  if (readOnly !== undefined && typeof readOnly !== 'boolean') {
+    throw new Error('Transaction readOnly must be a boolean.');
+  }
+  const tenant: unknown = options.tenant;
+  if (tenant !== undefined) {
+    if (tenant === null || typeof tenant !== 'object' || !('accountId' in tenant)) {
+      throw new Error('Transaction tenant must contain a non-empty accountId string.');
+    }
+    if (typeof tenant.accountId !== 'string' || tenant.accountId.trim().length === 0) {
+      throw new Error('Transaction tenant must contain a non-empty accountId string.');
+    }
+  }
+}
+
 export class TransactionStateError extends Error {
   readonly code = 'transaction_not_active';
 

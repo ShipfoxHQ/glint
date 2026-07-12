@@ -5,7 +5,7 @@ import type {OutboxDelivery, OutboxEvent, OutboxHealth, TransactionalOutbox} fro
 interface StoredEvent {
   readonly event: OutboxEvent;
   attempts: number;
-  state: 'pending' | 'leased' | 'dispatched';
+  state: 'pending' | 'leased' | 'dispatched' | 'dead-lettered';
   deliveryId?: string;
   leaseToken?: string;
   leaseExpiresAt?: Date;
@@ -14,12 +14,30 @@ interface StoredEvent {
 
 const storageKey = 'glint:outbox:events';
 
+export interface InMemoryTransactionalOutboxOptions {
+  readonly clock?: () => Date;
+  readonly createDeliveryId?: () => string;
+  readonly database: InMemoryDatabase;
+  readonly maxAttempts?: number;
+  readonly maxRetryDelayMs?: number;
+}
+
 export class InMemoryTransactionalOutbox implements TransactionalOutbox {
-  constructor(
-    private readonly database: InMemoryDatabase,
-    private readonly now: () => Date = () => new Date(),
-    private readonly createDeliveryId: () => string = randomUUID,
-  ) {}
+  readonly #clock: () => Date;
+  readonly #createDeliveryId: () => string;
+  readonly #database: InMemoryDatabase;
+  readonly #maxAttempts: number;
+  readonly #maxRetryDelayMs: number;
+
+  constructor(options: InMemoryTransactionalOutboxOptions) {
+    this.#clock = options.clock ?? (() => new Date());
+    this.#createDeliveryId = options.createDeliveryId ?? randomUUID;
+    this.#database = options.database;
+    this.#maxAttempts = options.maxAttempts ?? 5;
+    this.#maxRetryDelayMs = options.maxRetryDelayMs ?? 30 * 60 * 1_000;
+    assertPositiveInteger(this.#maxAttempts, 'maxAttempts');
+    assertNonNegativeInteger(this.#maxRetryDelayMs, 'maxRetryDelayMs');
+  }
 
   append<TPayload>(
     transaction: DatabaseTransaction,
@@ -35,7 +53,7 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
       state: 'pending',
       availableAt: new Date(event.availableAt ?? event.occurredAt),
     });
-    this.database.write(transaction, storageKey, events);
+    this.#database.write(transaction, storageKey, events);
     return Promise.resolve({status: 'created'} as const);
   }
 
@@ -44,49 +62,65 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
     readonly maximumEvents: number;
     readonly leaseDurationMs: number;
   }): Promise<readonly OutboxDelivery[]> {
-    return this.database.transaction((transaction) => {
-      const now = this.now();
+    return this.#database.transaction((transaction) => {
+      const now = this.#clock();
       const events = this.#events(transaction);
       const deliveries: OutboxDelivery[] = [];
       for (const stored of events) {
         if (deliveries.length >= input.maximumEvents) break;
         if (stored.state === 'leased' && stored.leaseExpiresAt && stored.leaseExpiresAt <= now) {
-          stored.state = 'pending';
+          this.#clearLease(stored);
+          stored.state = stored.attempts >= this.#maxAttempts ? 'dead-lettered' : 'pending';
         }
         if (stored.state !== 'pending' || stored.availableAt > now) continue;
         stored.attempts += 1;
         stored.state = 'leased';
-        stored.deliveryId = this.createDeliveryId();
+        stored.deliveryId = this.#createDeliveryId();
         stored.leaseToken = `${input.dispatcherId}:${stored.deliveryId}`;
         stored.leaseExpiresAt = new Date(now.getTime() + input.leaseDurationMs);
         deliveries.push(this.#delivery(stored));
       }
-      this.database.write(transaction, storageKey, events);
+      this.#database.write(transaction, storageKey, events);
       return Promise.resolve(deliveries);
     });
   }
 
   async acknowledge(input: {readonly deliveryId: string; readonly leaseToken: string}) {
-    await this.#updateDelivery(input, (stored) => {
+    const updated = await this.#updateDelivery(input, (stored) => {
       stored.state = 'dispatched';
     });
+    return {status: updated ? ('acknowledged' as const) : ('stale' as const)};
   }
 
   async retry(input: {
     readonly deliveryId: string;
     readonly leaseToken: string;
     readonly delayMs: number;
+    readonly failure?: unknown;
   }) {
-    await this.#updateDelivery(input, (stored) => {
-      stored.state = 'pending';
-      stored.availableAt = new Date(this.now().getTime() + input.delayMs);
+    assertNonNegativeInteger(input.delayMs, 'delayMs');
+    const nextAttemptAt = new Date(
+      this.#clock().getTime() + Math.min(input.delayMs, this.#maxRetryDelayMs),
+    );
+    if (Number.isNaN(nextAttemptAt.getTime())) {
+      throw new Error('delayMs and maxRetryDelayMs must produce a valid retry date');
+    }
+    let deadLettered = false;
+    const updated = await this.#updateDelivery(input, (stored) => {
+      deadLettered = stored.attempts >= this.#maxAttempts;
+      stored.state = deadLettered ? 'dead-lettered' : 'pending';
+      if (!deadLettered) stored.availableAt = nextAttemptAt;
     });
+    if (!updated) return {status: 'stale' as const};
+    return deadLettered
+      ? {status: 'dead-lettered' as const}
+      : {status: 'retry-scheduled' as const, nextAttemptAt};
   }
 
   health(): Promise<OutboxHealth> {
-    const now = this.now();
+    const now = this.#clock();
     const oldestPendingAt = this.#events()
-      .filter((stored) => stored.state !== 'dispatched')
+      .filter((stored) => stored.state === 'pending' || stored.state === 'leased')
       .map((stored) => stored.event.occurredAt)
       .sort((left, right) => left.getTime() - right.getTime())[0];
     return Promise.resolve({
@@ -102,30 +136,28 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
   }
 
   #events(transaction?: DatabaseTransaction): StoredEvent[] {
-    return this.database.read<StoredEvent[]>(storageKey, transaction) ?? [];
+    return this.#database.read<StoredEvent[]>(storageKey, transaction) ?? [];
   }
 
-  async #updateDelivery(
+  #updateDelivery(
     input: {readonly deliveryId: string; readonly leaseToken: string},
     update: (stored: StoredEvent) => void,
-  ): Promise<void> {
-    await this.database.transaction((transaction) => {
+  ): Promise<boolean> {
+    return this.#database.transaction((transaction) => {
       const events = this.#events(transaction);
       const stored = events.find((candidate) => candidate.deliveryId === input.deliveryId);
       if (
         stored?.state !== 'leased' ||
         stored.leaseToken !== input.leaseToken ||
         !stored.leaseExpiresAt ||
-        stored.leaseExpiresAt <= this.now()
+        stored.leaseExpiresAt <= this.#clock()
       ) {
-        throw new Error(`Outbox delivery ${input.deliveryId} is stale`);
+        return Promise.resolve(false);
       }
       update(stored);
-      delete stored.deliveryId;
-      delete stored.leaseToken;
-      delete stored.leaseExpiresAt;
-      this.database.write(transaction, storageKey, events);
-      return Promise.resolve();
+      this.#clearLease(stored);
+      this.#database.write(transaction, storageKey, events);
+      return Promise.resolve(true);
     });
   }
 
@@ -140,5 +172,21 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
       leaseToken: stored.leaseToken,
       leaseExpiresAt: new Date(stored.leaseExpiresAt),
     };
+  }
+
+  #clearLease(stored: StoredEvent): void {
+    delete stored.deliveryId;
+    delete stored.leaseToken;
+    delete stored.leaseExpiresAt;
+  }
+}
+
+function assertPositiveInteger(value: number, name: string): void {
+  if (!Number.isInteger(value) || value < 1) throw new Error(`${name} must be a positive integer`);
+}
+
+function assertNonNegativeInteger(value: number, name: string): void {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${name} must be a non-negative integer`);
   }
 }

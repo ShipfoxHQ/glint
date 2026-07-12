@@ -4,6 +4,7 @@ import type {TransactionalOutbox} from './types.js';
 
 export interface OutboxContractHarness {
   readonly database: Database;
+  readonly maxAttempts: number;
   readonly outbox: TransactionalOutbox;
   advanceBy(milliseconds: number): Promise<void> | void;
 }
@@ -62,24 +63,89 @@ export function transactionalOutboxContractTests(
       expect(second?.attempts).toBe(2);
     });
 
-    it('acknowledges successful dispatch and exposes pending age health', async () => {
+    it('acknowledges successful dispatch and exposes provider-neutral health', async () => {
       const {database, outbox, advanceBy} = await createHarness();
       await database.transaction((transaction) => outbox.append(transaction, event));
       await advanceBy(250);
-      await expect(outbox.health()).resolves.toMatchObject({
-        status: 'ready',
-        oldestPendingAgeMs: expect.any(Number),
-      });
-      expect((await outbox.health()).oldestPendingAgeMs).toBeGreaterThan(0);
+      await expect(outbox.health()).resolves.toMatchObject({status: 'ready'});
       const [delivery] = await outbox.claim({
         dispatcherId: 'dispatcher',
         maximumEvents: 1,
         leaseDurationMs: 1_000,
       });
       if (!delivery) throw new Error('Expected an outbox delivery');
-      await outbox.acknowledge(delivery);
+      await expect(outbox.acknowledge(delivery)).resolves.toEqual({status: 'acknowledged'});
       await expect(
         outbox.claim({dispatcherId: 'dispatcher', maximumEvents: 1, leaseDurationMs: 1_000}),
+      ).resolves.toEqual([]);
+    });
+
+    it('ignores an out-of-order acknowledgement from an expired lease', async () => {
+      const {database, outbox, advanceBy} = await createHarness();
+      await database.transaction((transaction) => outbox.append(transaction, event));
+      const [first] = await outbox.claim({
+        dispatcherId: 'first',
+        maximumEvents: 1,
+        leaseDurationMs: 1_000,
+      });
+      if (!first) throw new Error('Expected a first delivery');
+      await advanceBy(1_001);
+      const [second] = await outbox.claim({
+        dispatcherId: 'second',
+        maximumEvents: 1,
+        leaseDurationMs: 1_000,
+      });
+      if (!second) throw new Error('Expected a replacement delivery');
+
+      await expect(outbox.acknowledge(first)).resolves.toEqual({status: 'stale'});
+      await expect(
+        outbox.retry({...first, delayMs: 100, failure: new Error('late retry')}),
+      ).resolves.toEqual({status: 'stale'});
+      await expect(outbox.acknowledge(second)).resolves.toEqual({status: 'acknowledged'});
+    });
+
+    it('schedules a retry without making the event visible early', async () => {
+      const {database, outbox, advanceBy} = await createHarness();
+      await database.transaction((transaction) => outbox.append(transaction, event));
+      const [delivery] = await outbox.claim({
+        dispatcherId: 'dispatcher',
+        maximumEvents: 1,
+        leaseDurationMs: 1_000,
+      });
+      if (!delivery) throw new Error('Expected an outbox delivery');
+
+      await expect(
+        outbox.retry({...delivery, delayMs: 500, failure: new Error('temporary')}),
+      ).resolves.toMatchObject({status: 'retry-scheduled'});
+      await expect(
+        outbox.claim({dispatcherId: 'early', maximumEvents: 1, leaseDurationMs: 1_000}),
+      ).resolves.toEqual([]);
+      await advanceBy(500);
+      const [retried] = await outbox.claim({
+        dispatcherId: 'retry',
+        maximumEvents: 1,
+        leaseDurationMs: 1_000,
+      });
+      expect(retried?.attempts).toBe(2);
+    });
+
+    it('dead-letters an event after the bounded attempt count', async () => {
+      const {database, maxAttempts, outbox} = await createHarness();
+      await database.transaction((transaction) => outbox.append(transaction, event));
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const [delivery] = await outbox.claim({
+          dispatcherId: `dispatcher-${attempt}`,
+          maximumEvents: 1,
+          leaseDurationMs: 1_000,
+        });
+        if (!delivery) throw new Error(`Expected delivery attempt ${attempt}`);
+        const result = await outbox.retry({...delivery, delayMs: 0, failure: new Error('poison')});
+        expect(result.status).toBe(attempt === maxAttempts ? 'dead-lettered' : 'retry-scheduled');
+      }
+
+      await expect(
+        outbox.claim({dispatcherId: 'final', maximumEvents: 1, leaseDurationMs: 1_000}),
       ).resolves.toEqual([]);
     });
   });

@@ -6,9 +6,15 @@ import {InMemoryTransactionalOutbox} from './in-memory.js';
 transactionalOutboxContractTests('in-memory', () => {
   let now = Date.parse('2030-01-01T00:00:00Z');
   const database = new InMemoryDatabase();
+  const maxAttempts = 2;
   return {
     database,
-    outbox: new InMemoryTransactionalOutbox(database, () => new Date(now)),
+    maxAttempts,
+    outbox: new InMemoryTransactionalOutbox({
+      database,
+      clock: () => new Date(now),
+      maxAttempts,
+    }),
     advanceBy: (milliseconds) => {
       now += milliseconds;
     },
@@ -20,7 +26,11 @@ it('keeps delivery identities unique when the outbox is recreated', async () => 
   const now = new Date('2030-01-01T00:00:00Z');
   let nextId = 1;
   const ids = () => `delivery-${nextId++}`;
-  const firstOutbox = new InMemoryTransactionalOutbox(database, () => now, ids);
+  const firstOutbox = new InMemoryTransactionalOutbox({
+    database,
+    clock: () => now,
+    createDeliveryId: ids,
+  });
   await database.transaction((transaction) =>
     firstOutbox.append(transaction, {
       id: 'event-1',
@@ -35,9 +45,13 @@ it('keeps delivery identities unique when the outbox is recreated', async () => 
     leaseDurationMs: 1_000,
   });
   if (!first) throw new Error('Expected first delivery');
-  await firstOutbox.acknowledge(first);
+  await expect(firstOutbox.acknowledge(first)).resolves.toEqual({status: 'acknowledged'});
 
-  const secondOutbox = new InMemoryTransactionalOutbox(database, () => now, ids);
+  const secondOutbox = new InMemoryTransactionalOutbox({
+    database,
+    clock: () => now,
+    createDeliveryId: ids,
+  });
   await database.transaction((transaction) =>
     secondOutbox.append(transaction, {
       id: 'event-2',
@@ -53,5 +67,109 @@ it('keeps delivery identities unique when the outbox is recreated', async () => 
   });
   if (!second) throw new Error('Expected second delivery');
   expect(second.deliveryId).not.toBe(first.deliveryId);
-  await expect(secondOutbox.acknowledge(second)).resolves.toBeUndefined();
+  await expect(secondOutbox.acknowledge(second)).resolves.toEqual({status: 'acknowledged'});
+});
+
+it('exposes pending age from in-memory state', async () => {
+  const database = new InMemoryDatabase();
+  let now = Date.parse('2030-01-01T00:00:00Z');
+  const outbox = new InMemoryTransactionalOutbox({database, clock: () => new Date(now)});
+  await database.transaction((transaction) =>
+    outbox.append(transaction, {
+      id: 'pending-event',
+      topic: 'test.v1',
+      payload: {},
+      occurredAt: new Date(now),
+    }),
+  );
+
+  now += 250;
+
+  await expect(outbox.health()).resolves.toMatchObject({
+    status: 'ready',
+    oldestPendingAgeMs: 250,
+  });
+});
+
+it('dead-letters an exhausted lease', async () => {
+  const database = new InMemoryDatabase();
+  let now = new Date('2030-01-01T00:00:00Z');
+  const outbox = new InMemoryTransactionalOutbox({
+    database,
+    clock: () => now,
+    maxAttempts: 1,
+  });
+  await database.transaction((transaction) =>
+    outbox.append(transaction, {
+      id: 'expired-event',
+      topic: 'test.v1',
+      payload: {},
+      occurredAt: now,
+    }),
+  );
+  await expect(
+    outbox.claim({dispatcherId: 'first', maximumEvents: 1, leaseDurationMs: 50}),
+  ).resolves.toHaveLength(1);
+  now = new Date(now.getTime() + 51);
+  await expect(
+    outbox.claim({dispatcherId: 'second', maximumEvents: 1, leaseDurationMs: 50}),
+  ).resolves.toEqual([]);
+});
+
+it('bounds in-memory retry delays like the PostgreSQL adapter', async () => {
+  const database = new InMemoryDatabase();
+  const now = new Date('2030-01-01T00:00:00Z');
+  const outbox = new InMemoryTransactionalOutbox({
+    database,
+    clock: () => now,
+    maxAttempts: 2,
+    maxRetryDelayMs: 100,
+  });
+  await database.transaction((transaction) =>
+    outbox.append(transaction, {
+      id: 'bounded-retry',
+      topic: 'test.v1',
+      payload: {},
+      occurredAt: now,
+    }),
+  );
+  const [delivery] = await outbox.claim({
+    dispatcherId: 'first',
+    maximumEvents: 1,
+    leaseDurationMs: 1_000,
+  });
+  if (!delivery) throw new Error('Expected bounded retry delivery');
+  await expect(outbox.retry({...delivery, delayMs: 500})).resolves.toEqual({
+    status: 'retry-scheduled',
+    nextAttemptAt: new Date(now.getTime() + 100),
+  });
+});
+
+it('rejects retry delays that overflow the JavaScript Date range', async () => {
+  const database = new InMemoryDatabase();
+  const now = new Date('2030-01-01T00:00:00Z');
+  const outbox = new InMemoryTransactionalOutbox({
+    database,
+    clock: () => now,
+    maxAttempts: 2,
+    maxRetryDelayMs: Number.MAX_VALUE,
+  });
+  await database.transaction((transaction) =>
+    outbox.append(transaction, {
+      id: 'overflowing-retry',
+      topic: 'test.v1',
+      payload: {},
+      occurredAt: now,
+    }),
+  );
+  const [delivery] = await outbox.claim({
+    dispatcherId: 'first',
+    maximumEvents: 1,
+    leaseDurationMs: 1_000,
+  });
+  if (!delivery) throw new Error('Expected overflowing retry delivery');
+
+  await expect(outbox.retry({...delivery, delayMs: Number.MAX_VALUE})).rejects.toThrow(
+    'must produce a valid retry date',
+  );
 });

@@ -64,6 +64,41 @@ export function databaseContractTests(
       ).rejects.toMatchObject({code: 'read_only_transaction'});
     });
 
+    it.each([
+      0,
+      -1,
+      1.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      2_147_483_648,
+    ])('rejects invalid statement timeout %s before running the transaction', async (statementTimeoutMs) => {
+      await expect(harnessTransaction(createHarness, {statementTimeoutMs})).rejects.toThrow(
+        'statementTimeoutMs must be an integer between 1 and 2147483647.',
+      );
+    });
+
+    it('rejects blank tenant identities before running the transaction', async () => {
+      await expect(harnessTransaction(createHarness, {tenant: {accountId: '   '}})).rejects.toThrow(
+        'Transaction tenant must contain a non-empty accountId string.',
+      );
+    });
+
+    it.each([
+      [{tenant: null}, 'Transaction tenant must contain a non-empty accountId string.'],
+      [
+        {isolation: 'read-uncommitted'},
+        'Transaction isolation must be read-committed, repeatable-read, or serializable.',
+      ],
+      [{readOnly: 'false'}, 'Transaction readOnly must be a boolean.'],
+    ])('rejects invalid runtime transaction options %#', async (options, expected) => {
+      await expect(
+        harnessTransaction(
+          createHarness,
+          options as unknown as Parameters<Database['transaction']>[1],
+        ),
+      ).rejects.toThrow(expected);
+    });
+
     it('keeps tenant-scoped values isolated', async () => {
       const harness = await createHarness();
       for (const [accountId, value] of [
@@ -136,4 +171,14 @@ export function databaseContractTests(
       await expect(harness.database.health()).resolves.toMatchObject({status: 'ready'});
     });
   });
+}
+
+async function harnessTransaction(
+  createHarness: () => Promise<DatabaseContractHarness> | DatabaseContractHarness,
+  options: Parameters<Database['transaction']>[1],
+): Promise<void> {
+  const harness = await createHarness();
+  await harness.database.transaction(() => {
+    throw new Error('Transaction operation must not run for invalid options.');
+  }, options);
 }

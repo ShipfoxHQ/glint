@@ -120,6 +120,22 @@ importers:
         version: 24.13.3
 
   libs/shared/node/database:
+    dependencies:
+      '@glint/node-config':
+        specifier: workspace:*
+        version: link:../config
+      '@glint/node-observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@shipfox/node-drizzle':
+        specifier: 0.2.0
+        version: 0.2.0(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)
+      '@shipfox/node-postgres':
+        specifier: 0.4.0
+        version: 0.4.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)
     devDependencies:
       '@shipfox/biome':
         specifier: 1.8.1
@@ -240,6 +256,12 @@ importers:
       '@glint/node-database':
         specifier: workspace:*
         version: link:../database
+      '@shipfox/node-outbox':
+        specifier: 0.2.0
+        version: 0.2.0(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)
     devDependencies:
       '@shipfox/biome':
         specifier: 1.8.1
@@ -247,6 +269,9 @@ importers:
       '@shipfox/depcruise':
         specifier: 1.0.1
         version: 1.0.1
+      '@shipfox/node-postgres':
+        specifier: 0.4.0
+        version: 0.4.0
       '@shipfox/swc':
         specifier: 1.2.5
         version: 1.2.5
@@ -1501,11 +1526,22 @@ packages:
     resolution: {integrity: sha512-djv8wr7mmuZjdVuvWIVgp+oS9SeeMIu/NIqF0v1HGhdgVNogdAOrq+O7kCYVgaySIyPX+L1Uf3cq1VTiY8vISg==}
     hasBin: true
 
+  '@shipfox/node-drizzle@0.2.0':
+    resolution: {integrity: sha512-kAnGOGNoIvnCtF1DkeOR9WiTuDLFnEGZSP0Vs61fiQ8oWYGyudBEF+IMMwufuCe2XduSCYweq5JvdAlwVK2wOw==}
+    engines: {node: '>=24'}
+
   '@shipfox/node-log@0.3.1':
     resolution: {integrity: sha512-5VDDQcMpeWYMBdwKnFvpRlGLJ3XscCz3oleRSdGa9oV2zZL8RP4QN/Q0yagcJps3nGnReAPxJKepVJeZNV84AQ==}
 
   '@shipfox/node-opentelemetry@0.4.1':
     resolution: {integrity: sha512-bvSVSIlZYGhujcPYr7jNSFxxMcHFcrWsSVRnxiOauygQzZ4gaRIhrGML78uCl/PiohtMjDj7s2GEGMH/pK7fkQ==}
+
+  '@shipfox/node-outbox@0.2.0':
+    resolution: {integrity: sha512-TSVwvSajoP3y8Hn7KySIgGAUPnLB8/0l3yr+c9Vqkv2GWvFCg3Wh1P/KwnssNoiVVawp8qWDRR/MTn+RrVibnw==}
+    engines: {node: '>=24'}
+
+  '@shipfox/node-postgres@0.4.0':
+    resolution: {integrity: sha512-aQi3gtwZ0MpmEqTtvPMcObOwaTMu2gMLUPqP6+N/CB6xGY/NXtBDEWJWFvJBFiK5Pg6qgBy/wEfWIAD9438JBA==}
 
   '@shipfox/redact@0.2.0':
     resolution: {integrity: sha512-VOaBHHl/cLPGvRNXMhTQ8RqTFAGdfkDCs/XpR1znEyOJ46Hcauab2toWdMK9ZDQsb7VmfrnzDHVMNltkIPJE0g==}
@@ -2113,6 +2149,98 @@ packages:
   dot-prop@9.0.0:
     resolution: {integrity: sha512-1gxPBJpI/pcjQhKgIU91II6Wkay+dLcN3M6rf2uwP8hRur3HtQXjVrdAK3sjC0piaEuxzMwjXChcETiJl47lAQ==}
     engines: {node: '>=18'}
+
+  drizzle-orm@0.45.2:
+    resolution: {integrity: sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q==}
+    peerDependencies:
+      '@aws-sdk/client-rds-data': '>=3'
+      '@cloudflare/workers-types': '>=4'
+      '@electric-sql/pglite': '>=0.2.0'
+      '@libsql/client': '>=0.10.0'
+      '@libsql/client-wasm': '>=0.10.0'
+      '@neondatabase/serverless': '>=0.10.0'
+      '@op-engineering/op-sqlite': '>=2'
+      '@opentelemetry/api': ^1.4.1
+      '@planetscale/database': '>=1.13'
+      '@prisma/client': '*'
+      '@tidbcloud/serverless': '*'
+      '@types/better-sqlite3': '*'
+      '@types/pg': '*'
+      '@types/sql.js': '*'
+      '@upstash/redis': '>=1.34.7'
+      '@vercel/postgres': '>=0.8.0'
+      '@xata.io/client': '*'
+      better-sqlite3: '>=7'
+      bun-types: '*'
+      expo-sqlite: '>=14.0.0'
+      gel: '>=2'
+      knex: '*'
+      kysely: '*'
+      mysql2: '>=2'
+      pg: '>=8'
+      postgres: '>=3'
+      prisma: '*'
+      sql.js: '>=1'
+      sqlite3: '>=5'
+    peerDependenciesMeta:
+      '@aws-sdk/client-rds-data':
+        optional: true
+      '@cloudflare/workers-types':
+        optional: true
+      '@electric-sql/pglite':
+        optional: true
+      '@libsql/client':
+        optional: true
+      '@libsql/client-wasm':
+        optional: true
+      '@neondatabase/serverless':
+        optional: true
+      '@op-engineering/op-sqlite':
+        optional: true
+      '@opentelemetry/api':
+        optional: true
+      '@planetscale/database':
+        optional: true
+      '@prisma/client':
+        optional: true
+      '@tidbcloud/serverless':
+        optional: true
+      '@types/better-sqlite3':
+        optional: true
+      '@types/pg':
+        optional: true
+      '@types/sql.js':
+        optional: true
+      '@upstash/redis':
+        optional: true
+      '@vercel/postgres':
+        optional: true
+      '@xata.io/client':
+        optional: true
+      better-sqlite3:
+        optional: true
+      bun-types:
+        optional: true
+      expo-sqlite:
+        optional: true
+      gel:
+        optional: true
+      knex:
+        optional: true
+      kysely:
+        optional: true
+      mysql2:
+        optional: true
+      pg:
+        optional: true
+      postgres:
+        optional: true
+      prisma:
+        optional: true
+      sql.js:
+        optional: true
+      sqlite3:
+        optional: true
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
@@ -2777,9 +2905,20 @@ packages:
   pend@1.2.0:
     resolution: {integrity: sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==}
 
+  pg-cloudflare@1.4.0:
+    resolution: {integrity: sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A==}
+
+  pg-connection-string@2.14.0:
+    resolution: {integrity: sha512-XwWDGcLRGCXAR8F/AM5bG7Q+A3Wm2s6QeEjlOKZLlH3UYcguiqCWKyWXVag5TLTIjR7oOJUY8kcADaZgWPyLeg==}
+
   pg-int8@1.0.1:
     resolution: {integrity: sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==}
     engines: {node: '>=4.0.0'}
+
+  pg-pool@3.14.0:
+    resolution: {integrity: sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==}
+    peerDependencies:
+      pg: '>=8.0'
 
   pg-protocol@1.15.0:
     resolution: {integrity: sha512-cq9sECI5s0+uPUXjbz8ioyPJni6RzsRib0US67i5IoTZKw8fNeYlVE7u8F4dG7vEJJtc5wdD1K189lCCUwqWTQ==}
@@ -2787,6 +2926,18 @@ packages:
   pg-types@2.2.0:
     resolution: {integrity: sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==}
     engines: {node: '>=4'}
+
+  pg@8.22.0:
+    resolution: {integrity: sha512-8wih1vVIBMxoUM2oB4soJsD9tDnDpLv4OXBJ+EJzFsvycD+lfyIreC2gGHq78f8jbLLt+bvlPTFdFZfJkOuzAA==}
+    engines: {node: '>= 16.0.0'}
+    peerDependencies:
+      pg-native: '>=3.0.1'
+    peerDependenciesMeta:
+      pg-native:
+        optional: true
+
+  pgpass@1.0.5:
+    resolution: {integrity: sha512-FdW9r/jQZhSeohs1Z3sI1yxFQNFvMcnmfuj4WBMUTxOrAyLMaTcE1aAMBiTlbMNaXvBCQuVi0R7hd8udDSP7ug==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -4824,6 +4975,42 @@ snapshots:
       '@shipfox/tool-utils': 1.1.3
       dependency-cruiser: 17.4.3
 
+  '@shipfox/node-drizzle@0.2.0(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)':
+    dependencies:
+      '@shipfox/node-postgres': 0.4.0
+      drizzle-orm: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)
+    transitivePeerDependencies:
+      - '@aws-sdk/client-rds-data'
+      - '@cloudflare/workers-types'
+      - '@electric-sql/pglite'
+      - '@libsql/client'
+      - '@libsql/client-wasm'
+      - '@neondatabase/serverless'
+      - '@op-engineering/op-sqlite'
+      - '@opentelemetry/api'
+      - '@planetscale/database'
+      - '@prisma/client'
+      - '@tidbcloud/serverless'
+      - '@types/better-sqlite3'
+      - '@types/pg'
+      - '@types/sql.js'
+      - '@upstash/redis'
+      - '@vercel/postgres'
+      - '@xata.io/client'
+      - better-sqlite3
+      - bun-types
+      - expo-sqlite
+      - gel
+      - knex
+      - kysely
+      - mysql2
+      - pg
+      - pg-native
+      - postgres
+      - prisma
+      - sql.js
+      - sqlite3
+
   '@shipfox/node-log@0.3.1':
     dependencies:
       '@shipfox/config': 1.2.0
@@ -4857,6 +5044,49 @@ snapshots:
       '@shipfox/node-log': 0.3.1
     transitivePeerDependencies:
       - supports-color
+
+  '@shipfox/node-outbox@0.2.0(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)':
+    dependencies:
+      '@shipfox/node-drizzle': 0.2.0(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)
+      drizzle-orm: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)
+    transitivePeerDependencies:
+      - '@aws-sdk/client-rds-data'
+      - '@cloudflare/workers-types'
+      - '@electric-sql/pglite'
+      - '@libsql/client'
+      - '@libsql/client-wasm'
+      - '@neondatabase/serverless'
+      - '@op-engineering/op-sqlite'
+      - '@opentelemetry/api'
+      - '@planetscale/database'
+      - '@prisma/client'
+      - '@tidbcloud/serverless'
+      - '@types/better-sqlite3'
+      - '@types/pg'
+      - '@types/sql.js'
+      - '@upstash/redis'
+      - '@vercel/postgres'
+      - '@xata.io/client'
+      - better-sqlite3
+      - bun-types
+      - expo-sqlite
+      - gel
+      - knex
+      - kysely
+      - mysql2
+      - pg
+      - pg-native
+      - postgres
+      - prisma
+      - sql.js
+      - sqlite3
+
+  '@shipfox/node-postgres@0.4.0':
+    dependencies:
+      '@shipfox/config': 1.2.0
+      pg: 8.22.0
+    transitivePeerDependencies:
+      - pg-native
 
   '@shipfox/redact@0.2.0': {}
 
@@ -5506,6 +5736,12 @@ snapshots:
     dependencies:
       type-fest: 4.41.0
 
+  drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0):
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
+      '@types/pg': 8.15.6
+      pg: 8.22.0
+
   eastasianwidth@0.2.0: {}
 
   emoji-regex@10.6.0: {}
@@ -6093,7 +6329,16 @@ snapshots:
 
   pend@1.2.0: {}
 
+  pg-cloudflare@1.4.0:
+    optional: true
+
+  pg-connection-string@2.14.0: {}
+
   pg-int8@1.0.1: {}
+
+  pg-pool@3.14.0(pg@8.22.0):
+    dependencies:
+      pg: 8.22.0
 
   pg-protocol@1.15.0: {}
 
@@ -6104,6 +6349,20 @@ snapshots:
       postgres-bytea: 1.0.1
       postgres-date: 1.0.7
       postgres-interval: 1.2.0
+
+  pg@8.22.0:
+    dependencies:
+      pg-connection-string: 2.14.0
+      pg-pool: 3.14.0(pg@8.22.0)
+      pg-protocol: 1.15.0
+      pg-types: 2.2.0
+      pgpass: 1.0.5
+    optionalDependencies:
+      pg-cloudflare: 1.4.0
+
+  pgpass@1.0.5:
+    dependencies:
+      split2: 4.2.0
 
   picocolors@1.1.1: {}
 
