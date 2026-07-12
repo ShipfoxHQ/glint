@@ -4,6 +4,7 @@ import type {TransactionalOutbox} from './types.js';
 
 export interface OutboxContractHarness {
   readonly database: Database;
+  readonly maxAttempts: number;
   readonly outbox: TransactionalOutbox;
   advanceBy(milliseconds: number): Promise<void> | void;
 }
@@ -129,10 +130,10 @@ export function transactionalOutboxContractTests(
     });
 
     it('dead-letters an event after the bounded attempt count', async () => {
-      const {database, outbox} = await createHarness();
+      const {database, maxAttempts, outbox} = await createHarness();
       await database.transaction((transaction) => outbox.append(transaction, event));
 
-      for (let attempt = 1; attempt <= 5; attempt += 1) {
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         const [delivery] = await outbox.claim({
           dispatcherId: `dispatcher-${attempt}`,
           maximumEvents: 1,
@@ -140,7 +141,7 @@ export function transactionalOutboxContractTests(
         });
         if (!delivery) throw new Error(`Expected delivery attempt ${attempt}`);
         const result = await outbox.retry({...delivery, delayMs: 0, failure: new Error('poison')});
-        expect(result.status).toBe(attempt === 5 ? 'dead-lettered' : 'retry-scheduled');
+        expect(result.status).toBe(attempt === maxAttempts ? 'dead-lettered' : 'retry-scheduled');
       }
 
       await expect(

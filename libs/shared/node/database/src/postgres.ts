@@ -55,7 +55,10 @@ export class PostgresDatabase implements Database {
   #health: DatabaseHealth;
   #nextTransactionId = 1;
   readonly #onPoolError = (error: Error): void => {
-    this.#recordUnavailable('idle', error);
+    this.#logger?.warn('PostgreSQL discarded an idle client after a connection error.', {
+      ...databaseErrorAttributes(error),
+      operation: 'idle',
+    });
   };
 
   constructor(options: PostgresDatabaseOptions) {
@@ -75,8 +78,11 @@ export class PostgresDatabase implements Database {
   /** Verifies the connection once at process startup and caches readiness for dependency-free probes. */
   async initialize(): Promise<void> {
     try {
-      const result = await this.#pool.query('SELECT 1 AS ready');
+      const result = await this.#pool.query<{lc_messages: string}>(
+        "SELECT current_setting('lc_messages') AS lc_messages",
+      );
       if (result.rowCount !== 1) throw new Error('PostgreSQL readiness query returned no row.');
+      assertEnglishPostgresMessages(result.rows[0]?.lc_messages);
       this.#recordReady();
       this.#logger?.info('PostgreSQL connection is ready.');
     } catch (error) {
@@ -309,4 +315,20 @@ function databaseErrorMessageIncludes(error: unknown, expected: string): boolean
     candidate = 'cause' in candidate ? candidate.cause : undefined;
   }
   return false;
+}
+
+function assertEnglishPostgresMessages(locale: string | undefined): void {
+  const normalized = locale?.trim().toLowerCase();
+  if (
+    normalized === 'c' ||
+    normalized === 'posix' ||
+    normalized?.startsWith('c.') ||
+    normalized?.startsWith('en_') ||
+    normalized?.startsWith('en-')
+  ) {
+    return;
+  }
+  throw new Error(
+    `PostgreSQL lc_messages must use an English locale so query cancellations can be classified; received ${locale ?? 'an empty value'}.`,
+  );
 }

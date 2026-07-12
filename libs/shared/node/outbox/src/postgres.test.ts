@@ -67,9 +67,15 @@ describe.runIf(integrationEnabled)('PostgresTransactionalOutbox PostgreSQL 18 co
     if (!database || !pool) throw new Error('PostgreSQL outbox fixture was not initialized.');
     await pool.query('TRUNCATE glint_outbox, glint_outbox_domain');
     let now = Date.parse('2030-01-01T00:00:00Z');
+    const maxAttempts = 2;
     return {
       database,
-      outbox: new PostgresTransactionalOutbox({database, clock: () => new Date(now)}),
+      maxAttempts,
+      outbox: new PostgresTransactionalOutbox({
+        database,
+        clock: () => new Date(now),
+        maxAttempts,
+      }),
       advanceBy: (milliseconds: number) => {
         now += milliseconds;
       },

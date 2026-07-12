@@ -17,10 +17,13 @@ await database.transaction(async (transaction) => {
 ```
 
 `createPostgresDatabase()` validates configuration, creates the pool, and runs one startup
-`SELECT 1`. It never runs migrations. Transactions default to the five-second MVP statement
-deadline and support read-only, isolation, and transaction-local tenant context options. The
+connection and message-locale check. It never runs migrations. Transactions default to the
+five-second MVP statement deadline and support read-only, isolation, and transaction-local tenant
+context options. The
 Shipfox PostgreSQL factory owns one process-wide pool; construct it once in each composition root
-and close it during graceful shutdown.
+and close it during graceful shutdown. Supported PostgreSQL environments must expose English
+`lc_messages` (`C`, `POSIX`, or an `en_*` locale) so SQLSTATE `57014` cancellations can be
+distinguished as statement timeouts without misclassifying external cancellation.
 
 `database.health()` returns cached adapter state. It does not query PostgreSQL, so public health
 checks do not wake a suspended Neon database. Startup and runtime connection failures update the

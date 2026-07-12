@@ -6,9 +6,15 @@ import {InMemoryTransactionalOutbox} from './in-memory.js';
 transactionalOutboxContractTests('in-memory', () => {
   let now = Date.parse('2030-01-01T00:00:00Z');
   const database = new InMemoryDatabase();
+  const maxAttempts = 2;
   return {
     database,
-    outbox: new InMemoryTransactionalOutbox({database, clock: () => new Date(now)}),
+    maxAttempts,
+    outbox: new InMemoryTransactionalOutbox({
+      database,
+      clock: () => new Date(now),
+      maxAttempts,
+    }),
     advanceBy: (milliseconds) => {
       now += milliseconds;
     },
@@ -137,4 +143,33 @@ it('bounds in-memory retry delays like the PostgreSQL adapter', async () => {
     status: 'retry-scheduled',
     nextAttemptAt: new Date(now.getTime() + 100),
   });
+});
+
+it('rejects retry delays that overflow the JavaScript Date range', async () => {
+  const database = new InMemoryDatabase();
+  const now = new Date('2030-01-01T00:00:00Z');
+  const outbox = new InMemoryTransactionalOutbox({
+    database,
+    clock: () => now,
+    maxAttempts: 2,
+    maxRetryDelayMs: Number.MAX_VALUE,
+  });
+  await database.transaction((transaction) =>
+    outbox.append(transaction, {
+      id: 'overflowing-retry',
+      topic: 'test.v1',
+      payload: {},
+      occurredAt: now,
+    }),
+  );
+  const [delivery] = await outbox.claim({
+    dispatcherId: 'first',
+    maximumEvents: 1,
+    leaseDurationMs: 1_000,
+  });
+  if (!delivery) throw new Error('Expected overflowing retry delivery');
+
+  await expect(outbox.retry({...delivery, delayMs: Number.MAX_VALUE})).rejects.toThrow(
+    'must produce a valid retry date',
+  );
 });

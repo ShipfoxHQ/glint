@@ -100,7 +100,7 @@ function assertNonNegative(name: string, value: number): void {
 function isLocalPostgresHost(hostname: string): boolean {
   const normalized = hostname.trim().toLowerCase();
   if (normalized === 'localhost' || normalized === 'postgres') return true;
-  if (normalized === '::1' || normalized === '[::1]' || normalized === '0:0:0:0:0:0:0:1') {
+  if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') {
     return true;
   }
   const octets = normalized.split('.');

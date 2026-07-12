@@ -68,6 +68,12 @@ describe('database environment', () => {
     );
   });
 
+  it('rejects bracketed IPv6 literals that Node cannot resolve as database hosts', () => {
+    expect(() =>
+      loadDatabaseEnvironment({POSTGRES_HOST: '[::1]', POSTGRES_TLS_MODE: 'disable'}),
+    ).toThrow();
+  });
+
   it.each([
     ['POSTGRES_MAX_CONNECTIONS', '0'],
     ['POSTGRES_CONNECTION_TIMEOUT_MS', '-1'],

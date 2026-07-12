@@ -44,36 +44,50 @@ describe('PostgresDatabase readiness', () => {
     });
   });
 
-  it('handles idle pool errors and records cached unavailability', async () => {
-    const error = vi.fn();
+  it('logs discarded idle clients without permanently failing readiness', async () => {
+    const warn = vi.fn();
     const pool = Object.assign(new EventEmitter(), {
       end: vi.fn().mockResolvedValue(undefined),
-      query: vi.fn().mockResolvedValue({rowCount: 1}),
+      query: vi.fn().mockResolvedValue({rowCount: 1, rows: [{lc_messages: 'C'}]}),
     }) as unknown as Pool;
     const database = new PostgresDatabase({
       pool,
       logger: {
         child: vi.fn(),
         debug: vi.fn(),
-        error,
+        error: vi.fn(),
         fatal: vi.fn(),
         info: vi.fn(),
         trace: vi.fn(),
-        warn: vi.fn(),
+        warn,
       },
     });
     await database.initialize();
 
     pool.emit('error', new Error('Connection terminated unexpectedly'));
 
-    await expect(database.health()).resolves.toMatchObject({
-      status: 'unavailable',
-      detail: expect.stringContaining('Connection terminated unexpectedly'),
-    });
-    expect(error).toHaveBeenLastCalledWith('PostgreSQL connection is unavailable.', {
-      errorType: 'Error',
-      operation: 'idle',
-    });
+    await expect(database.health()).resolves.toMatchObject({status: 'ready'});
+    expect(warn).toHaveBeenCalledWith(
+      'PostgreSQL discarded an idle client after a connection error.',
+      {
+        errorType: 'Error',
+        operation: 'idle',
+      },
+    );
+    await database.close();
+  });
+
+  it('rejects locales that make cancellation messages unsafe to classify', async () => {
+    const pool = Object.assign(new EventEmitter(), {
+      end: vi.fn().mockResolvedValue(undefined),
+      query: vi.fn().mockResolvedValue({rowCount: 1, rows: [{lc_messages: 'fr_FR.UTF-8'}]}),
+    }) as unknown as Pool;
+    const database = new PostgresDatabase({pool});
+
+    await expect(database.initialize()).rejects.toThrow(
+      'PostgreSQL lc_messages must use an English locale',
+    );
+    await expect(database.health()).resolves.toMatchObject({status: 'unavailable'});
     await database.close();
   });
 

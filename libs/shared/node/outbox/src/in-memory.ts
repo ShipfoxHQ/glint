@@ -102,6 +102,9 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
     const nextAttemptAt = new Date(
       this.#clock().getTime() + Math.min(input.delayMs, this.#maxRetryDelayMs),
     );
+    if (Number.isNaN(nextAttemptAt.getTime())) {
+      throw new Error('delayMs and maxRetryDelayMs must produce a valid retry date');
+    }
     let deadLettered = false;
     const updated = await this.#updateDelivery(input, (stored) => {
       deadLettered = stored.attempts >= this.#maxAttempts;
