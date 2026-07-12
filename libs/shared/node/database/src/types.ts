@@ -15,7 +15,7 @@ export const MVP_DATABASE_POLICY = {
 
 export interface DatabaseHealth {
   readonly status: 'ready' | 'unavailable';
-  readonly checkedAt: Date;
+  readonly checkedAtMs: number;
   readonly detail?: string;
 }
 
@@ -34,5 +34,23 @@ export class TransactionStateError extends Error {
   constructor() {
     super('The transaction is no longer active');
     this.name = 'TransactionStateError';
+  }
+}
+
+export class ReadOnlyTransactionError extends Error {
+  readonly code = 'read_only_transaction';
+
+  constructor() {
+    super('Cannot write inside a read-only transaction');
+    this.name = 'ReadOnlyTransactionError';
+  }
+}
+
+export class StatementTimeoutError extends Error {
+  readonly code = 'statement_timeout';
+
+  constructor(readonly timeoutMs: number) {
+    super(`Transaction exceeded its ${timeoutMs} ms statement timeout`);
+    this.name = 'StatementTimeoutError';
   }
 }

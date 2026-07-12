@@ -6,6 +6,6 @@ databaseContractTests('in-memory', () => {
   return {
     database,
     write: (transaction, key, value) => database.write(transaction, key, value),
-    read: (key) => database.read<string>(key),
+    read: (transaction, key) => database.read<string>(key, transaction),
   };
 });

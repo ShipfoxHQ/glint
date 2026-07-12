@@ -8,11 +8,16 @@ export interface VcsContractHarness {
   readonly branch: string;
   readonly headSha: string;
   readonly ancestorSha: string;
+  readonly intermediateSha: string;
   readonly validWebhook: {
     readonly headers: Readonly<Record<string, string>>;
     readonly body: Uint8Array;
   };
   readonly invalidWebhook: {
+    readonly headers: Readonly<Record<string, string>>;
+    readonly body: Uint8Array;
+  };
+  readonly malformedWebhook: {
     readonly headers: Readonly<Record<string, string>>;
     readonly body: Uint8Array;
   };
@@ -52,6 +57,16 @@ export function vcsProviderContractTests(
       await expect(
         harness.provider.isAncestor(harness.repositoryId, harness.ancestorSha, harness.headSha),
       ).resolves.toBe(true);
+      await expect(
+        harness.provider.isAncestor(
+          harness.repositoryId,
+          harness.ancestorSha,
+          harness.intermediateSha,
+        ),
+      ).resolves.toBe(true);
+      await expect(
+        harness.provider.isAncestor(harness.repositoryId, harness.intermediateSha, harness.headSha),
+      ).resolves.toBe(true);
     });
 
     it('keeps one logical check and rejects out-of-order updates', async () => {
@@ -69,9 +84,12 @@ export function vcsProviderContractTests(
     });
 
     it('authenticates and maps webhooks before exposing provider-neutral events', async () => {
-      const {provider, validWebhook, invalidWebhook} = await createHarness();
+      const {provider, validWebhook, invalidWebhook, malformedWebhook} = await createHarness();
       await expect(provider.verifyWebhook(validWebhook)).resolves.toMatchObject({type: 'push'});
       await expect(provider.verifyWebhook(invalidWebhook)).rejects.toMatchObject({
+        code: 'invalid_webhook',
+      });
+      await expect(provider.verifyWebhook(malformedWebhook)).rejects.toMatchObject({
         code: 'invalid_webhook',
       });
     });

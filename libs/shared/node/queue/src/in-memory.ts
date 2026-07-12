@@ -36,8 +36,8 @@ export class InMemoryJobQueue implements JobQueue {
         id: input.id,
         name: input.name,
         payload: structuredClone(input.payload),
-        enqueuedAt: now,
-        availableAt: input.availableAt ?? now,
+        enqueuedAt: new Date(now),
+        availableAt: new Date(input.availableAt ?? now),
         maximumAttempts: input.maximumAttempts ?? MVP_JOB_QUEUE_POLICY.maximumAttempts,
         ...(input.correlationId ? {correlationId: input.correlationId} : {}),
         ...(input.traceParent ? {traceParent: input.traceParent} : {}),
@@ -76,10 +76,11 @@ export class InMemoryJobQueue implements JobQueue {
   }
 
   acknowledge(input: {readonly deliveryId: string; readonly leaseToken: string}) {
-    const record = this.#leasedRecord(input);
-    record.state = 'acknowledged';
-    delete record.leaseExpiresAt;
-    return Promise.resolve();
+    return Promise.resolve().then(() => {
+      const record = this.#leasedRecord(input);
+      record.state = 'acknowledged';
+      delete record.leaseExpiresAt;
+    });
   }
 
   retry(input: {
@@ -88,15 +89,16 @@ export class InMemoryJobQueue implements JobQueue {
     readonly delayMs: number;
     readonly reason: string;
   }) {
-    const record = this.#leasedRecord(input);
-    if (record.attempts >= record.job.maximumAttempts) {
-      this.#moveToDeadLetter(record, input.reason);
-      return Promise.resolve();
-    }
-    record.state = 'available';
-    delete record.leaseExpiresAt;
-    Object.assign(record.job, {availableAt: new Date(this.now().getTime() + input.delayMs)});
-    return Promise.resolve();
+    return Promise.resolve().then(() => {
+      const record = this.#leasedRecord(input);
+      if (record.attempts >= record.job.maximumAttempts) {
+        this.#moveToDeadLetter(record, input.reason);
+        return;
+      }
+      record.state = 'available';
+      delete record.leaseExpiresAt;
+      Object.assign(record.job, {availableAt: new Date(this.now().getTime() + input.delayMs)});
+    });
   }
 
   extendLease(input: {
@@ -104,9 +106,11 @@ export class InMemoryJobQueue implements JobQueue {
     readonly leaseToken: string;
     readonly leaseDurationMs: number;
   }): Promise<Date> {
-    const record = this.#leasedRecord(input);
-    record.leaseExpiresAt = new Date(this.now().getTime() + input.leaseDurationMs);
-    return Promise.resolve(record.leaseExpiresAt);
+    return Promise.resolve().then(() => {
+      const record = this.#leasedRecord(input);
+      record.leaseExpiresAt = new Date(this.now().getTime() + input.leaseDurationMs);
+      return new Date(record.leaseExpiresAt);
+    });
   }
 
   listDeadLetters(input?: {readonly maximumJobs?: number}): Promise<readonly DeadLetter[]> {
@@ -139,7 +143,10 @@ export class InMemoryJobQueue implements JobQueue {
       status: this.#healthStatus,
       checkedAt: now,
       ...(oldestAvailableAt
-        ? {oldestAvailableAt, oldestJobAgeMs: now.getTime() - oldestAvailableAt.getTime()}
+        ? {
+            oldestAvailableAt: new Date(oldestAvailableAt),
+            oldestJobAgeMs: now.getTime() - oldestAvailableAt.getTime(),
+          }
         : {}),
     });
   }
@@ -173,7 +180,7 @@ export class InMemoryJobQueue implements JobQueue {
       attempt: record.attempts,
       deliveryId: record.deliveryId,
       leaseToken: record.leaseToken,
-      leaseExpiresAt: record.leaseExpiresAt,
+      leaseExpiresAt: new Date(record.leaseExpiresAt),
     };
   }
 

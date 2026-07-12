@@ -44,6 +44,35 @@ export function jobQueueContractTests(
       ).resolves.toEqual([]);
     });
 
+    it('never returns more jobs than the requested claim bound', async () => {
+      const {queue} = await createHarness();
+      await Promise.all(
+        ['job-1', 'job-2', 'job-3'].map((id) => queue.enqueue({id, name: 'verify', payload: {}})),
+      );
+
+      await expect(
+        queue.claim({
+          consumerId: 'bounded',
+          maximumJobs: 2,
+          leaseDurationMs: MVP_JOB_QUEUE_POLICY.visibilityTimeoutMs,
+        }),
+      ).resolves.toHaveLength(2);
+    });
+
+    it('keeps an active lease exclusive to its consumer', async () => {
+      const {queue} = await createHarness();
+      await queue.enqueue({id: 'job-1', name: 'verify', payload: {}});
+      await claimOne(queue, 'first');
+
+      await expect(
+        queue.claim({
+          consumerId: 'second',
+          maximumJobs: 1,
+          leaseDurationMs: MVP_JOB_QUEUE_POLICY.visibilityTimeoutMs,
+        }),
+      ).resolves.toEqual([]);
+    });
+
     it('redelivers after an unacknowledged lease expires', async () => {
       const {queue, advanceBy} = await createHarness();
       await queue.enqueue({id: 'job-1', name: 'verify', payload: {}, correlationId: 'build-1'});
@@ -54,6 +83,28 @@ export function jobQueueContractTests(
       expect(second.job.correlationId).toBe('build-1');
       expect(second.attempt).toBe(2);
       expect(second.deliveryId).not.toBe(first.deliveryId);
+      await expect(queue.acknowledge(first)).rejects.toMatchObject({code: 'stale_delivery'});
+      await expect(queue.retry({...first, delayMs: 0, reason: 'stale'})).rejects.toMatchObject({
+        code: 'stale_delivery',
+      });
+    });
+
+    it('defensively copies mutable scheduling and lease timestamps', async () => {
+      const {queue, advanceBy} = await createHarness();
+      const availableAt = new Date(Date.UTC(2030, 0, 1));
+      await queue.enqueue({id: 'job-1', name: 'verify', payload: {}, availableAt});
+      availableAt.setUTCFullYear(2040);
+
+      const delivery = await claimOne(queue);
+      delivery.leaseExpiresAt.setUTCFullYear(2000);
+      await advanceBy(1);
+      await expect(
+        queue.claim({
+          consumerId: 'second',
+          maximumJobs: 1,
+          leaseDurationMs: MVP_JOB_QUEUE_POLICY.visibilityTimeoutMs,
+        }),
+      ).resolves.toEqual([]);
     });
 
     it('applies retry delays and moves exhausted work to a redrivable dead letter', async () => {

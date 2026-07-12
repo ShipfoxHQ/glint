@@ -91,7 +91,10 @@ test('a followed workspace dependency may use its own internal source files', ()
 });
 
 test('feature packages may use resolved third-party test and runtime dependencies', () => {
-  const feature = dependencyEdgeFixtures[3];
+  const feature = dependencyEdgeFixtures.find(
+    (fixture) => fixture.expectedRule === 'feature-no-other-feature-internals',
+  );
+  assert.ok(feature, 'feature dependency fixture must exist');
   assert.ok(
     !violations(feature, {
       from: 'src/contract-test-kit.ts',

@@ -28,24 +28,24 @@ export class InMemoryBlobStore implements BlobStore {
   ) {}
 
   put(input: PutBlobInput): Promise<{readonly status: 'created' | 'already-exists'}> {
-    if (this.#blobs.has(input.key)) {
-      return Promise.resolve({status: 'already-exists'});
-    }
-    const actual = checksum(input.body);
-    if (input.checksumSha256 && input.checksumSha256 !== actual) {
-      throw new BlobChecksumMismatchError(input.checksumSha256, actual);
-    }
-    this.#blobs.set(input.key, {
-      body: Uint8Array.from(input.body),
-      metadata: {
-        key: input.key,
-        contentType: input.contentType,
-        size: input.body.byteLength,
-        checksumSha256: actual,
-        createdAt: this.now(),
-      },
+    return Promise.resolve().then(() => {
+      if (this.#blobs.has(input.key)) return {status: 'already-exists'};
+      const actual = checksum(input.body);
+      if (input.checksumSha256 && input.checksumSha256 !== actual) {
+        throw new BlobChecksumMismatchError(input.checksumSha256, actual);
+      }
+      this.#blobs.set(input.key, {
+        body: Uint8Array.from(input.body),
+        metadata: {
+          key: input.key,
+          contentType: input.contentType,
+          size: input.body.byteLength,
+          checksumSha256: actual,
+          createdAt: new Date(this.now()),
+        },
+      });
+      return {status: 'created'};
     });
-    return Promise.resolve({status: 'created'});
   }
 
   read(key: string): Promise<Uint8Array | undefined> {
@@ -55,7 +55,7 @@ export class InMemoryBlobStore implements BlobStore {
 
   head(key: string): Promise<BlobMetadata | undefined> {
     const metadata = this.#blobs.get(key)?.metadata;
-    return Promise.resolve(metadata ? {...metadata} : undefined);
+    return Promise.resolve(metadata ? structuredClone(metadata) : undefined);
   }
 
   delete(key: string): Promise<void> {
@@ -69,7 +69,7 @@ export class InMemoryBlobStore implements BlobStore {
       url: `${this.publicBaseUrl}/upload`,
       fields: {key: input.key, 'Content-Type': input.contentType},
       fileField: 'file',
-      expiresAt: input.expiresAt,
+      expiresAt: new Date(input.expiresAt),
       constraints: {
         key: input.key,
         contentType: input.contentType,
@@ -82,17 +82,18 @@ export class InMemoryBlobStore implements BlobStore {
   signRead(input: {readonly key: string; readonly expiresAt: Date}): Promise<SignedRead> {
     return Promise.resolve({
       method: 'GET',
+      key: input.key,
       url: `${this.publicBaseUrl}/read/${encodeKey(input.key)}`,
       headers: {},
-      expiresAt: input.expiresAt,
+      expiresAt: new Date(input.expiresAt),
     });
   }
 
   health(): Promise<BlobStoreHealth> {
-    return Promise.resolve({...this.#health});
+    return Promise.resolve(structuredClone(this.#health));
   }
 
   setHealth(health: BlobStoreHealth): void {
-    this.#health = {...health};
+    this.#health = structuredClone(health);
   }
 }

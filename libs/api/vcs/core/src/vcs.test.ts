@@ -20,7 +20,8 @@ vcsProviderContractTests('in-memory', () => {
     headRepositoryId: 'repo-1',
     headSha: 'head',
   });
-  provider.seedAncestry('repo-1', 'base', 'head');
+  provider.seedAncestry('repo-1', 'base', 'middle');
+  provider.seedAncestry('repo-1', 'middle', 'head');
   const webhook = {
     type: 'push',
     deliveryId: 'delivery-1',
@@ -35,10 +36,15 @@ vcsProviderContractTests('in-memory', () => {
     branch: 'main',
     headSha: 'head',
     ancestorSha: 'base',
+    intermediateSha: 'middle',
     validWebhook: {
       headers: {'x-glint-signature': 'valid'},
       body: new TextEncoder().encode(JSON.stringify(webhook)),
     },
     invalidWebhook: {headers: {}, body: new Uint8Array()},
+    malformedWebhook: {
+      headers: {'x-glint-signature': 'valid'},
+      body: new TextEncoder().encode('{'),
+    },
   };
 });

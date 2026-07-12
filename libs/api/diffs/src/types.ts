@@ -30,6 +30,7 @@ export const MVP_DIFF_LIMITS: DiffLimits = {
 
 export interface DiffConfiguration {
   readonly version: string;
+  /** Per-channel difference ratio from 0 (exact match) through 1 (maximum difference). */
   readonly threshold: number;
   readonly antiAlias: 'include' | 'ignore';
 }
@@ -89,6 +90,7 @@ export class DiffInputError extends Error {
       | 'decoded_pixels_exceeded'
       | 'dimensions_exceeded'
       | 'generated_artifact_exceeded'
+      | 'comparison_timeout'
       | 'comparison_aborted',
     message: string,
   ) {

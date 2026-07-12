@@ -4,6 +4,7 @@ export type {
   BlobStore,
   BlobStoreHealth,
   PutBlobInput,
+  Sha256Hex,
   SignedMultipartUpload,
   SignedRead,
   SignedUploadInput,

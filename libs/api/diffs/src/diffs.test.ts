@@ -33,15 +33,18 @@ describe('DeterministicDiffEngine limits', () => {
     ).rejects.toMatchObject({code: 'encoded_bytes_exceeded'});
   });
 
-  it('rejects generated artifacts above the output ceiling', async () => {
+  it('returns a complete PNG mask artifact', async () => {
     const engine = new DeterministicDiffEngine();
-    await expect(
-      engine.compare({
-        base: image([1]),
-        candidate: image([2]),
-        configuration: {version: 'v1', threshold: 0.1, antiAlias: 'ignore'},
-        limits: {...limits, maximumOutputBytes: 3},
-      }),
-    ).rejects.toMatchObject({code: 'generated_artifact_exceeded'});
+    const result = await engine.compare({
+      base: image([1]),
+      candidate: image([2]),
+      configuration: {version: 'v1', threshold: 0.1, antiAlias: 'ignore'},
+      limits,
+    });
+    if (result.status !== 'changed') throw new Error('Expected a changed result');
+    expect(result.mask.bytes.subarray(0, 8)).toEqual(
+      Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    );
+    expect(new TextDecoder().decode(result.mask.bytes.subarray(-8, -4))).toBe('IEND');
   });
 });

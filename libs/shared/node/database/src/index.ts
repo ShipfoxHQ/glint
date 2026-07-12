@@ -5,4 +5,9 @@ export type {
   DatabaseTransaction,
   TransactionOptions,
 } from './types.js';
-export {MVP_DATABASE_POLICY, TransactionStateError} from './types.js';
+export {
+  MVP_DATABASE_POLICY,
+  ReadOnlyTransactionError,
+  StatementTimeoutError,
+  TransactionStateError,
+} from './types.js';

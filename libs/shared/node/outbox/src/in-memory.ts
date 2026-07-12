@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import type {DatabaseTransaction, InMemoryDatabase} from '@glint/node-database';
 import type {OutboxDelivery, OutboxEvent, OutboxHealth, TransactionalOutbox} from './types.js';
 
@@ -14,14 +15,16 @@ interface StoredEvent {
 const storageKey = 'glint:outbox:events';
 
 export class InMemoryTransactionalOutbox implements TransactionalOutbox {
-  #nextDeliveryId = 1;
-
   constructor(
     private readonly database: InMemoryDatabase,
     private readonly now: () => Date = () => new Date(),
+    private readonly createDeliveryId: () => string = randomUUID,
   ) {}
 
-  append<TPayload>(transaction: DatabaseTransaction, event: OutboxEvent<TPayload>) {
+  append<TPayload>(
+    transaction: DatabaseTransaction,
+    event: OutboxEvent<TPayload>,
+  ): Promise<{readonly status: 'created' | 'duplicate'}> {
     const events = this.#events(transaction);
     if (events.some((stored) => stored.event.id === event.id)) {
       return Promise.resolve({status: 'duplicate'} as const);
@@ -30,7 +33,7 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
       event: structuredClone(event),
       attempts: 0,
       state: 'pending',
-      availableAt: event.availableAt ?? event.occurredAt,
+      availableAt: new Date(event.availableAt ?? event.occurredAt),
     });
     this.database.write(transaction, storageKey, events);
     return Promise.resolve({status: 'created'} as const);
@@ -53,7 +56,7 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
         if (stored.state !== 'pending' || stored.availableAt > now) continue;
         stored.attempts += 1;
         stored.state = 'leased';
-        stored.deliveryId = `outbox-delivery-${this.#nextDeliveryId++}`;
+        stored.deliveryId = this.createDeliveryId();
         stored.leaseToken = `${input.dispatcherId}:${stored.deliveryId}`;
         stored.leaseExpiresAt = new Date(now.getTime() + input.leaseDurationMs);
         deliveries.push(this.#delivery(stored));
@@ -88,9 +91,12 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
       .sort((left, right) => left.getTime() - right.getTime())[0];
     return Promise.resolve({
       status: 'ready',
-      checkedAt: now,
+      checkedAt: new Date(now),
       ...(oldestPendingAt
-        ? {oldestPendingAt, oldestPendingAgeMs: now.getTime() - oldestPendingAt.getTime()}
+        ? {
+            oldestPendingAt: new Date(oldestPendingAt),
+            oldestPendingAgeMs: now.getTime() - oldestPendingAt.getTime(),
+          }
         : {}),
     });
   }
@@ -115,6 +121,8 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
         throw new Error(`Outbox delivery ${input.deliveryId} is stale`);
       }
       update(stored);
+      delete stored.deliveryId;
+      delete stored.leaseToken;
       delete stored.leaseExpiresAt;
       this.database.write(transaction, storageKey, events);
       return Promise.resolve();
@@ -130,7 +138,7 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
       attempts: stored.attempts,
       deliveryId: stored.deliveryId,
       leaseToken: stored.leaseToken,
-      leaseExpiresAt: stored.leaseExpiresAt,
+      leaseExpiresAt: new Date(stored.leaseExpiresAt),
     };
   }
 }

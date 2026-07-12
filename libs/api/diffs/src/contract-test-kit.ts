@@ -51,6 +51,44 @@ export function diffEngineContractTests(
       });
     });
 
+    it('enforces encoded input, decoded pixel, and dimension limits', async () => {
+      const {engine, changed, limits} = await createHarness();
+
+      await expect(
+        engine.compare({
+          ...changed,
+          configuration,
+          limits: {...limits, maximumEncodedBytes: 0},
+        }),
+      ).rejects.toMatchObject({code: 'encoded_bytes_exceeded'});
+      await expect(
+        engine.compare({
+          ...changed,
+          configuration,
+          limits: {...limits, maximumDecodedPixels: 0},
+        }),
+      ).rejects.toMatchObject({code: 'decoded_pixels_exceeded'});
+      await expect(
+        engine.compare({
+          base: {...changed.base, dimensions: {...changed.base.dimensions, width: 0}},
+          candidate: changed.candidate,
+          configuration,
+          limits,
+        }),
+      ).rejects.toMatchObject({code: 'dimensions_exceeded'});
+    });
+
+    it('rejects generated artifacts above the configured output limit', async () => {
+      const {engine, changed, limits} = await createHarness();
+      await expect(
+        engine.compare({
+          ...changed,
+          configuration,
+          limits: {...limits, maximumOutputBytes: 0},
+        }),
+      ).rejects.toMatchObject({code: 'generated_artifact_exceeded'});
+    });
+
     it('reports the concrete engine identity through a provider-neutral health shape', async () => {
       const {engine} = await createHarness();
       await expect(engine.health()).resolves.toMatchObject({

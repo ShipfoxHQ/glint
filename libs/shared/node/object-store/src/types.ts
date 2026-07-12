@@ -1,8 +1,11 @@
+/** A SHA-256 digest serialized as exactly 64 lowercase hexadecimal characters. */
+export type Sha256Hex = string;
+
 export interface BlobMetadata {
   readonly key: string;
   readonly contentType: string;
   readonly size: number;
-  readonly checksumSha256: string;
+  readonly checksumSha256: Sha256Hex;
   readonly createdAt: Date;
 }
 
@@ -10,7 +13,7 @@ export interface PutBlobInput {
   readonly key: string;
   readonly body: Uint8Array;
   readonly contentType: string;
-  readonly checksumSha256?: string;
+  readonly checksumSha256?: Sha256Hex;
 }
 
 export interface SignedUploadInput {
@@ -18,7 +21,7 @@ export interface SignedUploadInput {
   readonly contentType: string;
   readonly maximumBytes: number;
   readonly expiresAt: Date;
-  readonly checksumSha256?: string;
+  readonly checksumSha256?: Sha256Hex;
 }
 
 export interface SignedMultipartUpload {
@@ -31,12 +34,13 @@ export interface SignedMultipartUpload {
     readonly key: string;
     readonly contentType: string;
     readonly maximumBytes: number;
-    readonly checksumSha256?: string;
+    readonly checksumSha256?: Sha256Hex;
   };
 }
 
 export interface SignedRead {
   readonly method: 'GET';
+  readonly key: string;
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
   readonly expiresAt: Date;
@@ -68,8 +72,8 @@ export class BlobChecksumMismatchError extends Error {
   readonly code = 'blob_checksum_mismatch';
 
   constructor(
-    readonly expected: string,
-    readonly actual: string,
+    readonly expected: Sha256Hex,
+    readonly actual: Sha256Hex,
   ) {
     super(`Blob checksum mismatch: expected ${expected}, received ${actual}`);
     this.name = 'BlobChecksumMismatchError';

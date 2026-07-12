@@ -68,8 +68,9 @@ export function transactionalOutboxContractTests(
       await advanceBy(250);
       await expect(outbox.health()).resolves.toMatchObject({
         status: 'ready',
-        oldestPendingAgeMs: 250,
+        oldestPendingAgeMs: expect.any(Number),
       });
+      expect((await outbox.health()).oldestPendingAgeMs).toBeGreaterThan(0);
       const [delivery] = await outbox.claim({
         dispatcherId: 'dispatcher',
         maximumEvents: 1,

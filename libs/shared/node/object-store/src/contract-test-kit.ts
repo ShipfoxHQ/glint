@@ -2,6 +2,8 @@ import {describe, expect, it} from '@shipfox/vitest/vi';
 import type {BlobStore} from './types.js';
 import {MVP_BLOB_SIGNING_POLICY} from './types.js';
 
+const SHA256_123 = '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81';
+
 export function blobStoreContractTests(
   name: string,
   createStore: () => Promise<BlobStore> | BlobStore,
@@ -28,6 +30,27 @@ export function blobStoreContractTests(
         contentType: 'image/png',
         size: 3,
       });
+    });
+
+    it('uses lowercase hexadecimal SHA-256 checksums consistently', async () => {
+      const store = await createStore();
+      await store.put({
+        key: 'checksum-match',
+        body: Uint8Array.from([1, 2, 3]),
+        contentType: 'image/png',
+        checksumSha256: SHA256_123,
+      });
+      await expect(store.head('checksum-match')).resolves.toMatchObject({
+        checksumSha256: SHA256_123,
+      });
+      await expect(
+        store.put({
+          key: 'checksum-mismatch',
+          body: Uint8Array.from([1, 2, 3]),
+          contentType: 'image/png',
+          checksumSha256: SHA256_123.toUpperCase(),
+        }),
+      ).rejects.toMatchObject({code: 'blob_checksum_mismatch'});
     });
 
     it('deletes idempotently without exposing a listing capability', async () => {
@@ -67,6 +90,7 @@ export function blobStoreContractTests(
       const expiresAt = new Date('2030-01-01T00:00:00.000Z');
       await expect(store.signRead({key: 'tenant/source/hash', expiresAt})).resolves.toMatchObject({
         method: 'GET',
+        key: 'tenant/source/hash',
         expiresAt,
       });
       await expect(store.health()).resolves.toMatchObject({status: 'ready'});

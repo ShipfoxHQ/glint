@@ -11,6 +11,13 @@ import {DiffInputError} from './types.js';
 const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
   left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
 
+const transparentPng = Uint8Array.from(
+  Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    'base64',
+  ),
+);
+
 export class DeterministicDiffEngine implements DiffEngine {
   readonly identity = {name: 'deterministic-fake', version: '1'} as const;
   #healthStatus: DiffEngineHealth['status'] = 'ready';
@@ -44,7 +51,7 @@ export class DeterministicDiffEngine implements DiffEngine {
         return {status: 'unchanged'};
       }
       const {width, height} = input.candidate.dimensions;
-      const mask = Uint8Array.from([137, 80, 78, 71]);
+      const mask = Uint8Array.from(transparentPng);
       if (mask.byteLength > input.limits.maximumOutputBytes) {
         throw new DiffInputError(
           'generated_artifact_exceeded',
@@ -84,6 +91,8 @@ export class DeterministicDiffEngine implements DiffEngine {
       );
     }
     if (
+      image.dimensions.width <= 0 ||
+      image.dimensions.height <= 0 ||
       image.dimensions.width > limits.maximumWidth ||
       image.dimensions.height > limits.maximumHeight
     ) {
