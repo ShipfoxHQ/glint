@@ -23,7 +23,10 @@ Scale-to-zero makes this an upper estimate for a month that stays at minimum com
 working hour; idle gaps reduce it. Autoscaling above 0.25 compute units increases it. Actual compute
 duty cycle and metadata size replace this assumption after staging.
 
-The API estimate assumes three compatibility API calls per build (`GET project`, create, update/finalize), 512 MiB, and 100 ms per invocation. It excludes reviewer/dashboard reads and GitHub webhooks because the workload measurement did not observe them.
+The API estimate assumes three compatibility API calls per build (`GET project`, create,
+update/finalize), 512 MiB, and 100 ms per invocation. This is separate from the workload table's
+SQS operations, which count queue send, receive, and delete calls. It excludes reviewer/dashboard
+reads and GitHub webhooks because the workload measurement did not observe them.
 
 ## Storage and operations
 

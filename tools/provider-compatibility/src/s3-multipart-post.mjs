@@ -25,11 +25,22 @@ export function validateSignedPost({fields, url}) {
   if (!url || new URL(url).protocol !== 'https:') {
     throw new Error('Signed POST URL must use HTTPS');
   }
-  const missing = REQUIRED_SIGNED_FIELDS.filter((field) => !fields[field]);
+  const normalizedFields = new Map();
+  for (const [name, value] of Object.entries(fields)) {
+    const normalizedName = name.toLowerCase();
+    if (normalizedFields.has(normalizedName)) {
+      throw new Error(`Signed POST contains duplicate case-insensitive field: ${name}`);
+    }
+    normalizedFields.set(normalizedName, value);
+  }
+
+  const missing = REQUIRED_SIGNED_FIELDS.filter(
+    (field) => !normalizedFields.get(field.toLowerCase()),
+  );
   if (missing.length > 0) {
     throw new Error(`Signed POST is missing required fields: ${missing.join(', ')}`);
   }
-  if (fields['Content-Type'] !== 'image/png') {
+  if (normalizedFields.get('content-type') !== 'image/png') {
     throw new Error('Signed POST must constrain Content-Type to image/png');
   }
 }
