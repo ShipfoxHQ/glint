@@ -1,4 +1,6 @@
-import {deflateSync} from 'node:zlib';
+import {once} from 'node:events';
+import {finished} from 'node:stream/promises';
+import {createDeflate} from 'node:zlib';
 import type {
   DiffConfiguration,
   DiffEngine,
@@ -13,6 +15,7 @@ const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
   left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
 
 const PNG_SIGNATURE = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
+const PNG_CONTAINER_BYTES = PNG_SIGNATURE.byteLength + 25 + 12 + 12;
 
 const crc32 = (bytes: Uint8Array): number => {
   let crc = 0xffffffff;
@@ -35,22 +38,74 @@ const pngChunk = (type: string, data: Uint8Array): Uint8Array => {
   return Uint8Array.from(chunk);
 };
 
-const createDifferenceMask = (width: number, height: number): Uint8Array => {
+const createDifferenceMask = async (
+  width: number,
+  height: number,
+  maximumOutputBytes: number,
+  signal?: AbortSignal,
+): Promise<Uint8Array> => {
+  const maximumCompressedBytes = maximumOutputBytes - PNG_CONTAINER_BYTES;
+  if (maximumCompressedBytes < 0) {
+    throw new DiffInputError(
+      'generated_artifact_exceeded',
+      'Generated diff artifact exceeds the configured limit',
+    );
+  }
+
   const header = Buffer.alloc(13);
   header.writeUInt32BE(width, 0);
   header.writeUInt32BE(height, 4);
   header[8] = 8;
   header[9] = 6;
 
-  const scanlines = Buffer.alloc((width * 4 + 1) * height);
-  scanlines[1] = 255;
-  scanlines[4] = 255;
+  const firstScanline = Buffer.alloc(width * 4 + 1);
+  firstScanline[1] = 255;
+  firstScanline[4] = 255;
+  const emptyScanline = Buffer.alloc(width * 4 + 1);
+
+  const deflate = createDeflate();
+  const compressedChunks: Buffer[] = [];
+  let compressedBytes = 0;
+  deflate.on('data', (chunk: Buffer) => {
+    compressedBytes += chunk.byteLength;
+    if (compressedBytes > maximumCompressedBytes) {
+      deflate.destroy(
+        new DiffInputError(
+          'generated_artifact_exceeded',
+          'Generated diff artifact exceeds the configured limit',
+        ),
+      );
+      return;
+    }
+    compressedChunks.push(chunk);
+  });
+  const compressionFinished = finished(deflate);
+
+  const writeScanline = async (scanline: Uint8Array): Promise<void> => {
+    if (signal?.aborted) {
+      throw new DiffInputError('comparison_aborted', 'Comparison was aborted');
+    }
+    if (!deflate.write(scanline)) await once(deflate, 'drain');
+  };
+
+  try {
+    await writeScanline(firstScanline);
+    for (let row = 1; row < height; row++) await writeScanline(emptyScanline);
+    deflate.end();
+    await compressionFinished;
+  } catch (error) {
+    deflate.destroy();
+    await compressionFinished.catch(() => undefined);
+    throw error;
+  }
+
+  const compressed = Buffer.concat(compressedChunks, compressedBytes);
 
   return Uint8Array.from(
     Buffer.concat([
       Buffer.from(PNG_SIGNATURE),
       Buffer.from(pngChunk('IHDR', header)),
-      Buffer.from(pngChunk('IDAT', deflateSync(scanlines))),
+      Buffer.from(pngChunk('IDAT', compressed)),
       Buffer.from(pngChunk('IEND', new Uint8Array())),
     ]),
   );
@@ -62,50 +117,46 @@ export class DeterministicDiffEngine implements DiffEngine {
 
   constructor(private readonly now: () => Date = () => new Date()) {}
 
-  compare(input: {
+  async compare(input: {
     readonly base: DiffImage;
     readonly candidate: DiffImage;
     readonly configuration: DiffConfiguration;
     readonly limits: DiffLimits;
     readonly signal?: AbortSignal;
   }): Promise<DiffResult> {
-    return Promise.resolve().then(() => {
-      if (input.signal?.aborted) {
-        throw new DiffInputError('comparison_aborted', 'Comparison was aborted');
-      }
-      this.#validate(input.base, input.limits);
-      this.#validate(input.candidate, input.limits);
-      if (
-        input.base.dimensions.width !== input.candidate.dimensions.width ||
-        input.base.dimensions.height !== input.candidate.dimensions.height
-      ) {
-        return {
-          status: 'layout-changed',
-          base: {...input.base.dimensions},
-          candidate: {...input.candidate.dimensions},
-        };
-      }
-      if (bytesEqual(input.base.bytes, input.candidate.bytes)) {
-        return {status: 'unchanged'};
-      }
-      const {width, height} = input.candidate.dimensions;
-      const mask = createDifferenceMask(width, height);
-      if (mask.byteLength > input.limits.maximumOutputBytes) {
-        throw new DiffInputError(
-          'generated_artifact_exceeded',
-          'Generated diff artifact exceeds the configured limit',
-        );
-      }
+    if (input.signal?.aborted) {
+      throw new DiffInputError('comparison_aborted', 'Comparison was aborted');
+    }
+    this.#validate(input.base, input.limits);
+    this.#validate(input.candidate, input.limits);
+    if (
+      input.base.dimensions.width !== input.candidate.dimensions.width ||
+      input.base.dimensions.height !== input.candidate.dimensions.height
+    ) {
       return {
-        status: 'changed',
-        differentPixels: 1,
-        differenceRatio: 1 / (width * height),
-        width,
-        height,
-        mask: {bytes: mask, contentType: 'image/png'},
-        regions: [{x: 0, y: 0, width: 1, height: 1}],
+        status: 'layout-changed',
+        base: {...input.base.dimensions},
+        candidate: {...input.candidate.dimensions},
       };
-    });
+    }
+    if (bytesEqual(input.base.bytes, input.candidate.bytes)) return {status: 'unchanged'};
+
+    const {width, height} = input.candidate.dimensions;
+    const mask = await createDifferenceMask(
+      width,
+      height,
+      input.limits.maximumOutputBytes,
+      input.signal,
+    );
+    return {
+      status: 'changed',
+      differentPixels: 1,
+      differenceRatio: 1 / (width * height),
+      width,
+      height,
+      mask: {bytes: mask, contentType: 'image/png'},
+      regions: [{x: 0, y: 0, width: 1, height: 1}],
+    };
   }
 
   health(): Promise<DiffEngineHealth> {

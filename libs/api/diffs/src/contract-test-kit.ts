@@ -1,3 +1,4 @@
+import {inflateSync} from 'node:zlib';
 import {describe, expect, it} from '@shipfox/vitest/vi';
 import type {DiffEngine, DiffImage, DiffLimits} from './types.js';
 
@@ -10,6 +11,52 @@ export interface DiffEngineContractHarness {
 }
 
 const configuration = {version: 'contract-v1', threshold: 0.1, antiAlias: 'ignore'} as const;
+const PNG_SIGNATURE = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
+
+const crc32 = (bytes: Uint8Array): number => {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+};
+
+const expectValidPng = (bytes: Uint8Array, width: number, height: number): void => {
+  expect(bytes.subarray(0, 8)).toEqual(PNG_SIGNATURE);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const chunks: {readonly type: string; readonly data: Uint8Array}[] = [];
+  let offset = PNG_SIGNATURE.byteLength;
+  while (offset < bytes.byteLength) {
+    if (offset + 12 > bytes.byteLength) throw new Error('Truncated PNG chunk');
+    const length = view.getUint32(offset);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + length;
+    if (dataEnd + 4 > bytes.byteLength) throw new Error('Truncated PNG chunk data');
+    const type = new TextDecoder().decode(bytes.subarray(offset + 4, dataStart));
+    expect(view.getUint32(dataEnd)).toBe(crc32(bytes.subarray(offset + 4, dataEnd)));
+    chunks.push({type, data: bytes.subarray(dataStart, dataEnd)});
+    offset = dataEnd + 4;
+  }
+
+  expect(offset).toBe(bytes.byteLength);
+  expect(chunks[0]?.type).toBe('IHDR');
+  expect(chunks[0]?.data.byteLength).toBe(13);
+  expect(view.getUint32(16)).toBe(width);
+  expect(view.getUint32(20)).toBe(height);
+  expect(chunks.at(-1)?.type).toBe('IEND');
+  expect(chunks.at(-1)?.data.byteLength).toBe(0);
+  const imageData = chunks.filter(({type}) => type === 'IDAT').map(({data}) => Buffer.from(data));
+  expect(imageData.length).toBeGreaterThan(0);
+  expect(() => inflateSync(Buffer.concat(imageData))).not.toThrow();
+};
+
+const withDimensions = (
+  image: DiffImage,
+  dimensions: Partial<DiffImage['dimensions']>,
+): DiffImage => ({...image, dimensions: {...image.dimensions, ...dimensions}});
 
 export function diffEngineContractTests(
   name: string,
@@ -37,16 +84,7 @@ export function diffEngineContractTests(
       expect(first.differentPixels).toBeGreaterThan(0);
       expect(first.differenceRatio).toBeGreaterThan(0);
       expect(first.mask.bytes.byteLength).toBeGreaterThan(0);
-      expect(first.mask.bytes.subarray(0, 8)).toEqual(
-        Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]),
-      );
-      const maskView = new DataView(
-        first.mask.bytes.buffer,
-        first.mask.bytes.byteOffset,
-        first.mask.bytes.byteLength,
-      );
-      expect(maskView.getUint32(16)).toBe(first.width);
-      expect(maskView.getUint32(20)).toBe(first.height);
+      expectValidPng(first.mask.bytes, first.width, first.height);
       expect(first.regions.length).toBeGreaterThan(0);
     });
 
@@ -78,46 +116,42 @@ export function diffEngineContractTests(
           limits: {...limits, maximumDecodedPixels: 0},
         }),
       ).rejects.toMatchObject({code: 'decoded_pixels_exceeded'});
-      await expect(
-        engine.compare({
-          base: {
-            ...changed.base,
-            dimensions: {...changed.base.dimensions, width: limits.maximumWidth + 1},
-          },
-          candidate: {
-            ...changed.candidate,
-            dimensions: {...changed.candidate.dimensions, width: limits.maximumWidth + 1},
-          },
-          configuration,
-          limits,
-        }),
-      ).rejects.toMatchObject({code: 'dimensions_exceeded'});
-      await expect(
-        engine.compare({
-          base: {
-            ...changed.base,
-            dimensions: {...changed.base.dimensions, height: limits.maximumHeight + 1},
-          },
-          candidate: {
-            ...changed.candidate,
-            dimensions: {...changed.candidate.dimensions, height: limits.maximumHeight + 1},
-          },
-          configuration,
-          limits,
-        }),
-      ).rejects.toMatchObject({code: 'dimensions_exceeded'});
+      for (const images of [
+        {
+          base: withDimensions(changed.base, {width: limits.maximumWidth + 1}),
+          candidate: changed.candidate,
+        },
+        {
+          base: changed.base,
+          candidate: withDimensions(changed.candidate, {width: limits.maximumWidth + 1}),
+        },
+        {
+          base: withDimensions(changed.base, {height: limits.maximumHeight + 1}),
+          candidate: changed.candidate,
+        },
+        {
+          base: changed.base,
+          candidate: withDimensions(changed.candidate, {height: limits.maximumHeight + 1}),
+        },
+      ]) {
+        await expect(engine.compare({...images, configuration, limits})).rejects.toMatchObject({
+          code: 'dimensions_exceeded',
+        });
+      }
     });
 
     it('rejects non-positive image dimensions', async () => {
       const {engine, changed, limits} = await createHarness();
-      await expect(
-        engine.compare({
-          base: {...changed.base, dimensions: {...changed.base.dimensions, width: 0}},
-          candidate: changed.candidate,
-          configuration,
-          limits,
-        }),
-      ).rejects.toMatchObject({code: 'dimensions_exceeded'});
+      for (const images of [
+        {base: withDimensions(changed.base, {width: 0}), candidate: changed.candidate},
+        {base: changed.base, candidate: withDimensions(changed.candidate, {width: 0})},
+        {base: withDimensions(changed.base, {height: 0}), candidate: changed.candidate},
+        {base: changed.base, candidate: withDimensions(changed.candidate, {height: 0})},
+      ]) {
+        await expect(engine.compare({...images, configuration, limits})).rejects.toMatchObject({
+          code: 'dimensions_exceeded',
+        });
+      }
     });
 
     it('rejects generated artifacts above the configured output limit', async () => {

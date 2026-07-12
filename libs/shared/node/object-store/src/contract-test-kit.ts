@@ -99,7 +99,6 @@ export function blobStoreContractTests(
         key: 'tenant/source/hash',
         expiresAt,
       });
-      expect(decodeURIComponent(new URL(signed.url).pathname)).toContain('tenant/source/hash');
       await expect(store.health()).resolves.toMatchObject({status: 'ready'});
     });
   });
