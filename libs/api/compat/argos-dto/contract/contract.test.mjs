@@ -47,6 +47,9 @@ test('golden HTTP fixtures satisfy the published DTO schemas', async () => {
   for (const value of Object.values(errors)) {
     assert.doesNotThrow(() => argosErrorResponseSchema.parse(value.body));
   }
+  for (const value of [project, normal, skipped, update, finalize]) {
+    assert.equal(value.request.headers.authorization, 'Bearer <40-character-token>');
+  }
 });
 
 test('unknown producer fields survive parsing and do not expand the required subset', async () => {
@@ -66,9 +69,22 @@ test('Bearer authentication requires exactly 40 non-whitespace characters', () =
     `Bearer ${'a'.repeat(41)}`,
     `Basic ${'a'.repeat(40)}`,
     `Bearer ${'a'.repeat(20)} ${'b'.repeat(19)}`,
+    `Bearer ${'a'.repeat(40)}\n`,
   ]) {
     assert.throws(() => argosAuthorizationHeaderSchema.parse(value));
   }
+});
+
+test('required response and screenshot fields cannot be omitted', async () => {
+  const normal = await fixture('http/normal-build.json');
+  const update = await fixture('http/build-update.json');
+  const createWithoutBuildId = structuredClone(normal.response.body);
+  delete createWithoutBuildId.build.id;
+  assert.throws(() => argosCreateBuildResponseSchema.parse(createWithoutBuildId));
+
+  const updateWithoutMetadata = structuredClone(update.request.body);
+  delete updateWithoutMetadata.screenshots[0].metadata;
+  assert.throws(() => argosUpdateBuildBodySchema.parse(updateWithoutMetadata));
 });
 
 test('signed upload fixture preserves every opaque multipart field and appends file', async () => {
@@ -99,26 +115,33 @@ test('all sanitized recorder exchanges satisfy the route contract', async () => 
     const recording = JSON.parse(await readFile(join(recordingsRoot, name), 'utf8'));
     for (const exchange of recording.exchanges) {
       const {method, path, body} = exchange.request;
-      if (method === 'GET' && path === '/v2/project' && exchange.response.status < 400) {
+      if (method === 'GET' && path === '/v2/project') {
+        const responseSchema =
+          exchange.response.status < 400 ? argosProjectResponseSchema : argosErrorResponseSchema;
         assert.doesNotThrow(
-          () => argosProjectResponseSchema.parse(exchange.response.body),
+          () => responseSchema.parse(exchange.response.body),
           `${name} project response`,
         );
       } else if (method === 'POST' && path === '/v2/builds') {
         assert.doesNotThrow(() => argosCreateBuildBodySchema.parse(body), `${name} create body`);
-        const responseSchema = body.skipped
-          ? argosSkippedBuildResponseSchema
-          : argosCreateBuildResponseSchema;
-        if (exchange.response.status < 400) {
-          assert.doesNotThrow(
-            () => responseSchema.parse(exchange.response.body),
-            `${name} create response`,
-          );
-        }
+        const responseSchema =
+          exchange.response.status >= 400
+            ? argosErrorResponseSchema
+            : body.skipped
+              ? argosSkippedBuildResponseSchema
+              : argosCreateBuildResponseSchema;
+        assert.doesNotThrow(
+          () => responseSchema.parse(exchange.response.body),
+          `${name} create response`,
+        );
       } else if (method === 'PUT' && path.startsWith('/v2/builds/')) {
         assert.doesNotThrow(() => argosUpdateBuildBodySchema.parse(body), `${name} update body`);
+        const responseSchema =
+          exchange.response.status < 400
+            ? argosUpdateBuildResponseSchema
+            : argosErrorResponseSchema;
         assert.doesNotThrow(
-          () => argosUpdateBuildResponseSchema.parse(exchange.response.body),
+          () => responseSchema.parse(exchange.response.body),
           `${name} update response`,
         );
       } else if (method === 'POST' && path === '/v2/builds/finalize') {
@@ -126,8 +149,12 @@ test('all sanitized recorder exchanges satisfy the route contract', async () => 
           () => argosFinalizeBuildsBodySchema.parse(body),
           `${name} finalize body`,
         );
+        const responseSchema =
+          exchange.response.status < 400
+            ? argosFinalizeBuildsResponseSchema
+            : argosErrorResponseSchema;
         assert.doesNotThrow(
-          () => argosFinalizeBuildsResponseSchema.parse(exchange.response.body),
+          () => responseSchema.parse(exchange.response.body),
           `${name} finalize response`,
         );
       } else if (exchange.response.status >= 400) {
@@ -153,4 +180,7 @@ test('OpenAPI publishes only the recorded /v2 surface and documents permissive f
   assert.doesNotMatch(openapi, /\/v2\/baseline/);
   assert.match(openapi, /Exactly 40 non-whitespace token characters/);
   assert.match(openapi, /additionalProperties: true/);
+  assert.match(openapi, /x-argos-request-id/);
+  assert.match(openapi, /x-argos-retry-attempt/);
+  assert.match(openapi, /anyOf:/);
 });

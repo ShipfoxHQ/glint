@@ -5,7 +5,7 @@ export const ARGOS_TOKEN_LENGTH = 40;
 
 export const argosAuthorizationHeaderSchema = z
   .string()
-  .regex(/^Bearer [^\s]{40}$/, 'Expected Bearer followed by a 40-character token');
+  .regex(/^Bearer [^\s]{40}(?![\s\S])/, 'Expected Bearer followed by a 40-character token');
 
 const nullableStringSchema = z.string().nullable();
 const nullableIntegerSchema = z.number().int().nullable();
@@ -51,7 +51,7 @@ export const argosCreateBuildBodySchema = z.union([
 export const argosScreenshotSchema = z.looseObject({
   key: sha256Schema,
   name: z.string(),
-  metadata: z.unknown().nullable(),
+  metadata: z.unknown().nullable().nonoptional(),
   pwTraceKey: nullableStringSchema,
   threshold: z.number().nullable(),
   baseName: nullableStringSchema,
@@ -76,6 +76,10 @@ export const argosBuildSchema = z.looseObject({
   url: z.string().optional(),
 });
 
+export const argosCreatedBuildSchema = argosBuildSchema.extend({
+  id: z.string(),
+});
+
 export const argosSignedUploadSchema = z.looseObject({
   key: sha256Schema,
   postUrl: z.string(),
@@ -83,7 +87,7 @@ export const argosSignedUploadSchema = z.looseObject({
 });
 
 export const argosCreateBuildResponseSchema = z.looseObject({
-  build: argosBuildSchema,
+  build: argosCreatedBuildSchema,
   screenshots: z.array(argosSignedUploadSchema),
   pwTraces: z.array(argosSignedUploadSchema).optional(),
 });

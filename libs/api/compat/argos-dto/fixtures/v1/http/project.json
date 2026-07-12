@@ -1,7 +1,10 @@
 {
   "request": {
     "method": "GET",
-    "path": "/v2/project"
+    "path": "/v2/project",
+    "headers": {
+      "authorization": "Bearer <40-character-token>"
+    }
   },
   "response": {
     "status": 200,

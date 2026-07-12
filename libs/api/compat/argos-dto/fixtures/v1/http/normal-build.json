@@ -46,6 +46,10 @@
           "fields": {
             "key": "objects/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "policy": "<opaque-signed-value>",
+            "x-amz-algorithm": "AWS4-HMAC-SHA256",
+            "x-amz-credential": "<opaque-signed-value>",
+            "x-amz-date": "20260711T000000Z",
+            "x-amz-signature": "<opaque-signed-value>",
             "Content-Type": "image/png"
           }
         }

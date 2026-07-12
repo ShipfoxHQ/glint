@@ -2,6 +2,9 @@
   "request": {
     "method": "POST",
     "path": "/v2/builds",
+    "headers": {
+      "authorization": "Bearer <40-character-token>"
+    },
     "body": {
       "commit": "1111111111111111111111111111111111111111",
       "branch": "recording-branch",

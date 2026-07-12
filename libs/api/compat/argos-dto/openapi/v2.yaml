@@ -11,6 +11,9 @@ paths:
   /v2/project:
     get:
       operationId: getArgosProject
+      parameters:
+        - $ref: "#/components/parameters/ArgosRequestId"
+        - $ref: "#/components/parameters/ArgosRetryAttempt"
       responses:
         "200":
           description: Producer project configuration.
@@ -25,6 +28,9 @@ paths:
   /v2/builds:
     post:
       operationId: createArgosBuild
+      parameters:
+        - $ref: "#/components/parameters/ArgosRequestId"
+        - $ref: "#/components/parameters/ArgosRetryAttempt"
       requestBody:
         required: true
         content:
@@ -39,7 +45,7 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
+                anyOf:
                   - $ref: "#/components/schemas/CreateBuildResponse"
                   - $ref: "#/components/schemas/BuildResponse"
         "401":
@@ -50,6 +56,8 @@ paths:
     put:
       operationId: updateArgosBuild
       parameters:
+        - $ref: "#/components/parameters/ArgosRequestId"
+        - $ref: "#/components/parameters/ArgosRetryAttempt"
         - name: buildId
           in: path
           required: true
@@ -77,6 +85,9 @@ paths:
   /v2/builds/finalize:
     post:
       operationId: finalizeArgosBuilds
+      parameters:
+        - $ref: "#/components/parameters/ArgosRequestId"
+        - $ref: "#/components/parameters/ArgosRetryAttempt"
       requestBody:
         required: true
         content:
@@ -107,6 +118,22 @@ paths:
         "500":
           $ref: "#/components/responses/Error"
 components:
+  parameters:
+    ArgosRequestId:
+      name: x-argos-request-id
+      in: header
+      required: true
+      description: Stable request identifier reused across every retry of one API request.
+      schema:
+        type: string
+    ArgosRetryAttempt:
+      name: x-argos-retry-attempt
+      in: header
+      required: true
+      description: Zero-based retry attempt; starts at 0 and increments for each API retry.
+      schema:
+        type: integer
+        minimum: 0
   securitySchemes:
     bearerAuth:
       type: http

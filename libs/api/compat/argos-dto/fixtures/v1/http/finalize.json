@@ -2,6 +2,9 @@
   "request": {
     "method": "POST",
     "path": "/v2/builds/finalize",
+    "headers": {
+      "authorization": "Bearer <40-character-token>"
+    },
     "body": {
       "parallelNonce": "recording-parallel-nonce"
     }
