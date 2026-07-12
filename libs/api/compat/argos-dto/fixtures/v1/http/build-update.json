@@ -1,0 +1,45 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/v2/builds/build-fixture",
+    "headers": {
+      "authorization": "Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "body": {
+      "screenshots": [
+        {
+          "key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "fixture.png",
+          "metadata": null,
+          "pwTraceKey": null,
+          "threshold": null,
+          "baseName": null,
+          "parentName": null,
+          "contentType": "image/png"
+        }
+      ],
+      "parallel": false,
+      "parallelTotal": null,
+      "parallelIndex": null,
+      "metadata": {
+        "testReport": {
+          "status": "passed",
+          "stats": {
+            "startTime": "2026-07-11T00:00:00.000Z",
+            "duration": 42
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "build": {
+        "id": "build-fixture",
+        "status": "pending",
+        "url": "https://glint.invalid/builds/build-fixture"
+      }
+    }
+  }
+}

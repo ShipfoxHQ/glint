@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v2/project",
+    "headers": {
+      "authorization": "Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "defaultBaseBranch": "main",
+      "hasRemoteContentAccess": true
+    }
+  },
+  "minimalResponse": {
+    "status": 200,
+    "body": {
+      "hasRemoteContentAccess": true
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "responseItem": {
+    "key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "postUrl": "https://uploads.invalid/fixture",
+    "fields": {
+      "key": "objects/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "policy": "<opaque-signed-value>",
+      "x-amz-algorithm": "AWS4-HMAC-SHA256",
+      "x-amz-credential": "<opaque-signed-value>",
+      "x-amz-date": "20260711T000000Z",
+      "x-amz-signature": "<opaque-signed-value>",
+      "Content-Type": "image/png"
+    }
+  },
+  "request": {
+    "method": "POST",
+    "contentType": "multipart/form-data; boundary=<multipart-boundary>",
+    "fields": {
+      "key": "<opaque-response-field:key>",
+      "policy": "<opaque-response-field:policy>",
+      "x-amz-algorithm": "<opaque-response-field:x-amz-algorithm>",
+      "x-amz-credential": "<opaque-response-field:x-amz-credential>",
+      "x-amz-date": "<opaque-response-field:x-amz-date>",
+      "x-amz-signature": "<opaque-response-field:x-amz-signature>",
+      "Content-Type": "image/png"
+    },
+    "file": {
+      "field": "file",
+      "filename": "<generated-upload-filename>",
+      "contentType": "image/png",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "successStatus": 204,
+  "producerRetryCount": 0
+}
