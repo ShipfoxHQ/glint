@@ -58,7 +58,7 @@ export function selectCapabilities<
 export function collectMigrationDirectories<TCapabilities extends GlintCapabilityTypes>(
   composition: GlintComposition<TCapabilities>,
 ): readonly string[] {
-  return composition.capabilities.migrations.map((migration) => migration.directory);
+  return [...new Set(composition.capabilities.migrations.map((migration) => migration.directory))];
 }
 
 function indexModules<TCapabilities extends GlintCapabilityTypes>(

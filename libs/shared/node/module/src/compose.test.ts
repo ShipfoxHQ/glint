@@ -85,6 +85,28 @@ describe('composeModules', () => {
     expect(migrate.migrations[0]?.directory).toBe('/modules/builds/drizzle');
   });
 
+  it('collects each migration directory once in dependency-first order', () => {
+    const composition = composeModules([
+      {
+        name: 'builds',
+        dependencies: ['assets'],
+        migrations: [
+          {name: 'builds.schema', directory: '/modules/shared/drizzle'},
+          {name: 'builds.views', directory: '/modules/builds/drizzle'},
+        ],
+      },
+      {
+        name: 'assets',
+        migrations: [{name: 'assets.schema', directory: '/modules/shared/drizzle'}],
+      },
+    ]);
+
+    expect(collectMigrationDirectories(composition)).toEqual([
+      '/modules/shared/drizzle',
+      '/modules/builds/drizzle',
+    ]);
+  });
+
   it('rejects duplicate module names', () => {
     expect(() => composeModules([{name: 'assets'}, {name: 'assets'}])).toThrowError(
       expect.objectContaining<Partial<ModuleCompositionError>>({code: 'duplicate_module'}),
