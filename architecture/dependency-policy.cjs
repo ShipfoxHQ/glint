@@ -31,6 +31,7 @@ const workspacePaths = (workspaceRoot, currentDirectory, paths) =>
   );
 
 const DTO_PATH = '(?:^|/)[^/]+-dto/(?:src|dist)(?:/|$)';
+const NODE_MODULES_PATH = '(?:^|/)node_modules(?:/|$)';
 const SOURCE_PATH = '(?:^|/)(?:src|dist)/';
 const PUBLIC_INDEX = ['^src/index\\.', '^dist/index\\.', '/src/index\\.', '/dist/index\\.'];
 const CROSS_PACKAGE_SOURCE_PATHS = Array.from({length: 8}, (_, upIndex) =>
@@ -98,7 +99,7 @@ const createDependencyCruiserConfig = ({
       from: {},
       to: {
         path: [...CROSS_PACKAGE_SOURCE_PATHS, '^@glint/[^/]+/(?:src|dist)(?:/|$)'],
-        pathNot: PUBLIC_INDEX,
+        pathNot: [...PUBLIC_INDEX, NODE_MODULES_PATH],
       },
     },
   ];
@@ -113,7 +114,7 @@ const createDependencyCruiserConfig = ({
         from: {path: '^(?:src|test)(?:/|$)'},
         to: {
           path: [...CROSS_PACKAGE_SOURCE_PATHS, '^@glint/[^/]+/(?:src|dist)(?:/|$)'],
-          pathNot: DTO_PATH,
+          pathNot: [DTO_PATH, NODE_MODULES_PATH],
         },
       },
       {

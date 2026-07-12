@@ -312,7 +312,12 @@ Glint reuses the public Shipfox toolchain where it is product-agnostic:
 - `@shipfox/react-ui`;
 - public Node helpers such as `@shipfox/node-fastify` or `@shipfox/node-postgres` only after E0 confirms they are suitable and independently published.
 
-Shipfox-private packages such as `@shipfox/node-module`, database, or outbox internals cannot be dependencies of an open-source Glint checkout. Glint implements the small equivalents it needs under `libs/shared/node/*`, with their behavior covered locally.
+Company-owned Shipfox packages may be published and reused by the open-source Glint checkout when
+their contracts are product-agnostic. The current `@shipfox/node-module` contract is not reused as-is
+because it couples composition to Shipfox's Fastify, Drizzle, Temporal, outbox, and observability
+implementations and runs migrations during general module initialization. Glint keeps its smaller,
+provider-neutral composition and one-shot migration contracts under `libs/shared/node/*`; a future
+shared extraction may move them into a public `@shipfox/*` package without changing those boundaries.
 
 `tools/` stays empty unless Glint develops genuinely Glint-specific build tooling. It must not fork public Shipfox wrappers merely to change a name.
 
