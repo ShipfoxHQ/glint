@@ -8,7 +8,13 @@ import type {
   SignedRead,
   SignedUploadInput,
 } from './types.js';
-import {BlobChecksumMismatchError, parseSha256Hex} from './types.js';
+import {
+  BlobChecksumMismatchError,
+  parseSha256Hex,
+  validateBlobKey,
+  validateSignedReadInput,
+  validateSignedUploadInput,
+} from './types.js';
 
 interface StoredBlob {
   readonly body: Uint8Array;
@@ -30,11 +36,12 @@ export class InMemoryBlobStore implements BlobStore {
 
   put(input: PutBlobInput): Promise<{readonly status: 'created' | 'already-exists'}> {
     return Promise.resolve().then(() => {
-      if (this.#blobs.has(input.key)) return {status: 'already-exists'};
+      validateBlobKey(input.key);
       const actual = checksum(input.body);
       if (input.checksumSha256 && input.checksumSha256 !== actual) {
         throw new BlobChecksumMismatchError(input.checksumSha256, actual);
       }
+      if (this.#blobs.has(input.key)) return {status: 'already-exists'};
       this.#blobs.set(input.key, {
         body: Uint8Array.from(input.body),
         metadata: {
@@ -50,21 +57,25 @@ export class InMemoryBlobStore implements BlobStore {
   }
 
   read(key: string): Promise<Uint8Array | undefined> {
+    validateBlobKey(key);
     const blob = this.#blobs.get(key);
     return Promise.resolve(blob ? Uint8Array.from(blob.body) : undefined);
   }
 
   head(key: string): Promise<BlobMetadata | undefined> {
+    validateBlobKey(key);
     const metadata = this.#blobs.get(key)?.metadata;
     return Promise.resolve(metadata ? structuredClone(metadata) : undefined);
   }
 
   delete(key: string): Promise<void> {
+    validateBlobKey(key);
     this.#blobs.delete(key);
     return Promise.resolve();
   }
 
   signUpload(input: SignedUploadInput): Promise<SignedMultipartUpload> {
+    validateSignedUploadInput(input, this.now());
     return Promise.resolve({
       method: 'POST',
       url: `${this.publicBaseUrl}/upload`,
@@ -75,12 +86,13 @@ export class InMemoryBlobStore implements BlobStore {
         key: input.key,
         contentType: input.contentType,
         maximumBytes: input.maximumBytes,
-        ...(input.checksumSha256 ? {checksumSha256: input.checksumSha256} : {}),
+        checksumSha256: input.checksumSha256,
       },
     });
   }
 
   signRead(input: {readonly key: string; readonly expiresAt: Date}): Promise<SignedRead> {
+    validateSignedReadInput(input, this.now());
     return Promise.resolve({
       method: 'GET',
       key: input.key,

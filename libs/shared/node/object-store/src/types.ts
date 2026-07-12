@@ -28,7 +28,7 @@ export interface SignedUploadInput {
   readonly contentType: string;
   readonly maximumBytes: number;
   readonly expiresAt: Date;
-  readonly checksumSha256?: Sha256Hex;
+  readonly checksumSha256: Sha256Hex;
 }
 
 export interface SignedMultipartUpload {
@@ -41,7 +41,7 @@ export interface SignedMultipartUpload {
     readonly key: string;
     readonly contentType: string;
     readonly maximumBytes: number;
-    readonly checksumSha256?: Sha256Hex;
+    readonly checksumSha256: Sha256Hex;
   };
 }
 
@@ -74,6 +74,91 @@ export const MVP_BLOB_SIGNING_POLICY = {
   maximumBytes: 8 * 1024 * 1024,
   expiresAfterMs: 5 * 60 * 1_000,
 } as const;
+
+const MAXIMUM_S3_KEY_BYTES = 1_024;
+
+export function validateBlobKey(key: string): void {
+  const segments = key.split('/');
+  const containsControlCharacter = [...key].some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || (code >= 127 && code <= 159);
+  });
+  if (
+    key.length === 0 ||
+    Buffer.byteLength(key, 'utf8') > MAXIMUM_S3_KEY_BYTES ||
+    key.startsWith('/') ||
+    key.endsWith('/') ||
+    key.includes('\\') ||
+    containsControlCharacter ||
+    segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..')
+  ) {
+    throw new BlobConstraintError('key', 'Blob keys must be safe, relative S3 object keys');
+  }
+}
+
+export function validateSignedUploadInput(input: SignedUploadInput, now: Date): void {
+  validateBlobKey(input.key);
+  if (!input.checksumSha256) {
+    throw new BlobConstraintError(
+      'checksum',
+      'Signed uploads require a SHA-256 checksum to preserve content immutability',
+    );
+  }
+  if (input.contentType !== MVP_BLOB_SIGNING_POLICY.contentType) {
+    throw new BlobConstraintError(
+      'content-type',
+      `Signed uploads require ${MVP_BLOB_SIGNING_POLICY.contentType}`,
+    );
+  }
+  if (
+    !Number.isSafeInteger(input.maximumBytes) ||
+    input.maximumBytes < 1 ||
+    input.maximumBytes > MVP_BLOB_SIGNING_POLICY.maximumBytes
+  ) {
+    throw new BlobConstraintError(
+      'size',
+      `Signed uploads must allow between 1 and ${MVP_BLOB_SIGNING_POLICY.maximumBytes} bytes`,
+    );
+  }
+  validateSignedExpiry(input.expiresAt, now);
+}
+
+export function validateSignedReadInput(
+  input: {readonly key: string; readonly expiresAt: Date},
+  now: Date,
+): void {
+  validateBlobKey(input.key);
+  validateSignedExpiry(input.expiresAt, now);
+}
+
+function validateSignedExpiry(expiresAt: Date, now: Date): void {
+  const expiresAtMs = expiresAt.getTime();
+  const nowMs = now.getTime();
+  const lifetimeMs = expiresAtMs - nowMs;
+  if (
+    !Number.isFinite(expiresAtMs) ||
+    !Number.isFinite(nowMs) ||
+    lifetimeMs <= 0 ||
+    lifetimeMs > MVP_BLOB_SIGNING_POLICY.expiresAfterMs
+  ) {
+    throw new BlobConstraintError(
+      'expiry',
+      `Signed operations must expire within ${MVP_BLOB_SIGNING_POLICY.expiresAfterMs} milliseconds`,
+    );
+  }
+}
+
+export class BlobConstraintError extends Error {
+  readonly code = 'blob_constraint_violation';
+
+  constructor(
+    readonly constraint: 'key' | 'content-type' | 'size' | 'expiry' | 'checksum',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'BlobConstraintError';
+  }
+}
 
 export class BlobChecksumMismatchError extends Error {
   readonly code = 'blob_checksum_mismatch';

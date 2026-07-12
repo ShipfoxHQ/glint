@@ -37,6 +37,11 @@
     "type": "shipfox-tsc-check",
     "type:emit": "shipfox-tsc-emit"
   },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1085.0",
+    "@aws-sdk/s3-presigned-post": "3.1085.0",
+    "@aws-sdk/s3-request-presigner": "3.1085.0"
+  },
   "devDependencies": {
     "@shipfox/biome": "1.8.1",
     "@shipfox/depcruise": "1.0.1",
