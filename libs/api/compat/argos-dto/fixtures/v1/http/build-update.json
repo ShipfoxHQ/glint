@@ -3,7 +3,7 @@
     "method": "PUT",
     "path": "/v2/builds/build-fixture",
     "headers": {
-      "authorization": "Bearer <40-character-token>"
+      "authorization": "Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     },
     "body": {
       "screenshots": [

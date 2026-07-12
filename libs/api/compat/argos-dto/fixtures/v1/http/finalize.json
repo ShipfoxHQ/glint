@@ -3,7 +3,7 @@
     "method": "POST",
     "path": "/v2/builds/finalize",
     "headers": {
-      "authorization": "Bearer <40-character-token>"
+      "authorization": "Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     },
     "body": {
       "parallelNonce": "recording-parallel-nonce"

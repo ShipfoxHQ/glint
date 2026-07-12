@@ -3,7 +3,7 @@
     "method": "POST",
     "path": "/v2/builds",
     "headers": {
-      "authorization": "Bearer <40-character-token>"
+      "authorization": "Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     },
     "body": {
       "commit": "1111111111111111111111111111111111111111",

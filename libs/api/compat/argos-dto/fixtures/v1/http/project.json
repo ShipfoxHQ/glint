@@ -3,7 +3,7 @@
     "method": "GET",
     "path": "/v2/project",
     "headers": {
-      "authorization": "Bearer <40-character-token>"
+      "authorization": "Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     }
   },
   "response": {

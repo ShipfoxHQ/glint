@@ -48,7 +48,9 @@ test('golden HTTP fixtures satisfy the published DTO schemas', async () => {
     assert.doesNotThrow(() => argosErrorResponseSchema.parse(value.body));
   }
   for (const value of [project, normal, skipped, update, finalize]) {
-    assert.equal(value.request.headers.authorization, 'Bearer <40-character-token>');
+    assert.doesNotThrow(() =>
+      argosAuthorizationHeaderSchema.parse(value.request.headers.authorization),
+    );
   }
 });
 
