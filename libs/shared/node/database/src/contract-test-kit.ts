@@ -99,10 +99,10 @@ export function databaseContractTests(
       const readerStarted = new Promise<void>((resolve) => {
         signalReaderStarted = resolve;
       });
-      let signalWriterAttempted: () => void = () => undefined;
+      let signalWriterCommitted: () => void = () => undefined;
       let signalWriterFailed: (error: unknown) => void = () => undefined;
-      const writerAttempted = new Promise<void>((resolve, reject) => {
-        signalWriterAttempted = resolve;
+      const writerCommitted = new Promise<void>((resolve, reject) => {
+        signalWriterCommitted = resolve;
         signalWriterFailed = reject;
       });
 
@@ -110,7 +110,7 @@ export function databaseContractTests(
         async (transaction) => {
           expect(await harness.read(transaction, 'snapshot')).toBe('before');
           signalReaderStarted();
-          await writerAttempted;
+          await writerCommitted;
           expect(await harness.read(transaction, 'snapshot')).toBe('before');
         },
         {isolation: 'repeatable-read'},
@@ -118,11 +118,10 @@ export function databaseContractTests(
       const writer = (async () => {
         await readerStarted;
         try {
-          const update = harness.database.transaction((transaction) =>
+          await harness.database.transaction((transaction) =>
             Promise.resolve(harness.write(transaction, 'snapshot', 'after')),
           );
-          signalWriterAttempted();
-          await update;
+          signalWriterCommitted();
         } catch (error) {
           signalWriterFailed(error);
           throw error;

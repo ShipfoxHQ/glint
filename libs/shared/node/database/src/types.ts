@@ -3,6 +3,10 @@ export interface DatabaseTransaction {
 }
 
 export interface TransactionOptions {
+  /**
+   * `repeatable-read` provides a stable MVCC-style snapshot and must not block an independent
+   * transaction from committing an update to data read by the snapshot.
+   */
   readonly isolation?: 'read-committed' | 'repeatable-read' | 'serializable';
   readonly readOnly?: boolean;
   readonly statementTimeoutMs?: number;

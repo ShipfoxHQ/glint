@@ -24,6 +24,52 @@ const crc32 = (bytes: Uint8Array): number => {
   return (crc ^ 0xffffffff) >>> 0;
 };
 
+const pngRasterByteLength = (header: Uint8Array, width: number, height: number): number => {
+  const bitDepth = header[8];
+  const colorType = header[9];
+  const compressionMethod = header[10];
+  const filterMethod = header[11];
+  const interlaceMethod = header[12];
+  const channels = new Map([
+    [0, 1],
+    [2, 3],
+    [3, 1],
+    [4, 2],
+    [6, 4],
+  ]).get(colorType ?? -1);
+  const validBitDepths = new Map<number, readonly number[]>([
+    [0, [1, 2, 4, 8, 16]],
+    [2, [8, 16]],
+    [3, [1, 2, 4, 8]],
+    [4, [8, 16]],
+    [6, [8, 16]],
+  ]).get(colorType ?? -1);
+
+  expect(channels).toBeDefined();
+  expect(validBitDepths).toContain(bitDepth);
+  expect(compressionMethod).toBe(0);
+  expect(filterMethod).toBe(0);
+  expect([0, 1]).toContain(interlaceMethod);
+  if (!channels || bitDepth === undefined) throw new Error('Invalid PNG color encoding');
+
+  const scanlineBytes = (pixels: number) => Math.ceil((pixels * channels * bitDepth) / 8) + 1;
+  if (interlaceMethod === 0) return scanlineBytes(width) * height;
+
+  return [
+    [0, 0, 8, 8],
+    [4, 0, 8, 8],
+    [0, 4, 4, 8],
+    [2, 0, 4, 4],
+    [0, 2, 2, 4],
+    [1, 0, 2, 2],
+    [0, 1, 1, 2],
+  ].reduce((total, [startX = 0, startY = 0, stepX = 1, stepY = 1]) => {
+    const passWidth = width <= startX ? 0 : Math.ceil((width - startX) / stepX);
+    const passHeight = height <= startY ? 0 : Math.ceil((height - startY) / stepY);
+    return total + (passWidth === 0 ? 0 : scanlineBytes(passWidth) * passHeight);
+  }, 0);
+};
+
 const expectValidPng = (bytes: Uint8Array, width: number, height: number): void => {
   expect(bytes.subarray(0, 8)).toEqual(PNG_SIGNATURE);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -50,7 +96,11 @@ const expectValidPng = (bytes: Uint8Array, width: number, height: number): void 
   expect(chunks.at(-1)?.data.byteLength).toBe(0);
   const imageData = chunks.filter(({type}) => type === 'IDAT').map(({data}) => Buffer.from(data));
   expect(imageData.length).toBeGreaterThan(0);
-  expect(() => inflateSync(Buffer.concat(imageData))).not.toThrow();
+  const header = chunks[0]?.data;
+  if (!header) throw new Error('Missing PNG header');
+  const expectedRasterBytes = pngRasterByteLength(header, width, height);
+  const raster = inflateSync(Buffer.concat(imageData), {maxOutputLength: expectedRasterBytes + 1});
+  expect(raster.byteLength).toBe(expectedRasterBytes);
 };
 
 const withDimensions = (
