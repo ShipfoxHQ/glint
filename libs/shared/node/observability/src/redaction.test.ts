@@ -67,6 +67,50 @@ describe('redaction', () => {
     expect(serialized).toContain('[REDACTED]');
   });
 
+  it('redacts URL fragments, authorization schemes, and free-form token pairs', () => {
+    const redactor = createRedactor();
+    const output = redactor.redact([
+      'https://example.com/callback#access_token=fragment-token&state=public',
+      'Authorization: Basic encoded-credentials',
+      'Authorization: AWS4-HMAC-SHA256 signed-credentials',
+      'token=plain-token signature=plain-signature',
+    ]);
+    const serialized = JSON.stringify(output);
+
+    expect(serialized).not.toContain('fragment-token');
+    expect(serialized).not.toContain('encoded-credentials');
+    expect(serialized).not.toContain('signed-credentials');
+    expect(serialized).not.toContain('plain-token');
+    expect(serialized).not.toContain('plain-signature');
+  });
+
+  it('redacts configured secrets inside URL objects', () => {
+    const secret = 'configured-secret';
+    const redactor = createRedactor({secrets: [secret]});
+    const output = redactor.redact(
+      new URL(`https://example.com/${secret}?opaque=${secret}#state=${secret}`),
+    );
+
+    expect(output).not.toContain(secret);
+  });
+
+  it('redacts logger messages and attributes before delegating', () => {
+    const secret = 'configured-secret';
+    const entries: LogEntry[] = [];
+    const logger = createRedactingLogger(memoryLogger(entries), {secrets: [secret]});
+
+    logger.info(`Using ${secret}`, {
+      authorization: 'Basic encoded-credentials',
+      endpoint: `https://example.com/callback#access_token=fragment-token`,
+    });
+
+    const serialized = JSON.stringify(entries);
+    expect(serialized).not.toContain(secret);
+    expect(serialized).not.toContain('encoded-credentials');
+    expect(serialized).not.toContain('fragment-token');
+    expect(serialized).toContain('[REDACTED]');
+  });
+
   it('adds the active API or worker correlation IDs to every log record', () => {
     const entries: LogEntry[] = [];
     const correlations = new CorrelationContextStore();

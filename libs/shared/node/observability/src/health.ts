@@ -20,7 +20,7 @@ export interface ReadinessCheck {
 }
 
 export class HealthRegistry {
-  readonly #checks = new Map<string, ReadinessCheck>();
+  readonly #checks = new Map<string, {readonly check: ReadinessCheck}>();
   readonly #clock: () => number;
   #notLiveReason: string | undefined;
 
@@ -38,12 +38,15 @@ export class HealthRegistry {
   }
 
   markNotLive(reason: string): void {
-    this.#notLiveReason = reason;
+    const normalizedReason = reason.trim();
+    if (normalizedReason.length === 0) throw new Error('A not-live reason is required.');
+    this.#notLiveReason = normalizedReason;
   }
 
   async readiness(): Promise<HealthReport> {
     const checks = await Promise.all(
-      [...this.#checks.values()].map(async ({check, name}) => {
+      [...this.#checks.values()].map(async ({check: readinessCheck}) => {
+        const {check, name} = readinessCheck;
         const startedAt = this.#clock();
         try {
           await check();
@@ -70,7 +73,10 @@ export class HealthRegistry {
     if (this.#checks.has(check.name)) {
       throw new Error(`Readiness check "${check.name}" is already registered.`);
     }
-    this.#checks.set(check.name, check);
-    return () => this.#checks.delete(check.name);
+    const registration = {check};
+    this.#checks.set(check.name, registration);
+    return () => {
+      if (this.#checks.get(check.name) === registration) this.#checks.delete(check.name);
+    };
   }
 }

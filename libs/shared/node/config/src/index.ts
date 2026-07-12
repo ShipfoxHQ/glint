@@ -2,13 +2,17 @@ import {type CleanedEnv, cleanEnv} from '@shipfox/config';
 
 export {bool, email, host, num, port, str, url} from '@shipfox/config';
 
-export interface EnvironmentVariable<TValidator> {
+export interface EnvironmentValidator {
+  readonly _parse: (input: string) => unknown;
+}
+
+export interface EnvironmentVariable<TValidator extends EnvironmentValidator> {
   readonly description: string;
   readonly sensitive: boolean;
   readonly validator: TValidator;
 }
 
-export type EnvironmentSchema = Readonly<Record<string, EnvironmentVariable<unknown>>>;
+export type EnvironmentSchema = Readonly<Record<string, EnvironmentVariable<EnvironmentValidator>>>;
 
 export type ValidatorsFor<TSchema extends EnvironmentSchema> = {
   readonly [TKey in keyof TSchema]: TSchema[TKey]['validator'];
@@ -41,7 +45,7 @@ export class InvalidConfigurationError extends Error {
   }
 }
 
-export function environmentVariable<TValidator>(
+export function environmentVariable<TValidator extends EnvironmentValidator>(
   validator: TValidator,
   options: {readonly description: string; readonly sensitive?: boolean},
 ): EnvironmentVariable<TValidator> {

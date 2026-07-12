@@ -10,6 +10,9 @@ import {
   str,
 } from './index.js';
 
+// @ts-expect-error Schema authors must use an envalid-compatible validator.
+environmentVariable(42, {description: 'Invalid validator fixture.'});
+
 const schema = defineEnvironmentSchema({
   DATABASE_URL: environmentVariable(str(), {
     description: 'PostgreSQL connection URL used by API, worker, and migration processes.',
