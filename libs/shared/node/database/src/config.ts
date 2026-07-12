@@ -42,7 +42,7 @@ const databaseEnvironmentSchema = defineEnvironmentSchema({
     str({choices: ['disable', 'verify-full'], default: 'disable'}),
     {
       description:
-        'PostgreSQL TLS policy. Local development uses disable; managed environments use verify-full.',
+        'PostgreSQL TLS policy. Plaintext is accepted only for loopback and the local Compose service.',
     },
   ),
 });
@@ -69,6 +69,11 @@ export function loadDatabaseEnvironment(
   if (loaded.POSTGRES_TLS_MODE !== 'disable' && loaded.POSTGRES_TLS_MODE !== 'verify-full') {
     throw new Error('POSTGRES_TLS_MODE must be disable or verify-full.');
   }
+  if (loaded.POSTGRES_TLS_MODE === 'disable' && !isLocalPostgresHost(loaded.POSTGRES_HOST)) {
+    throw new Error(
+      'POSTGRES_TLS_MODE must be verify-full when POSTGRES_HOST is not local or the Compose postgres service.',
+    );
+  }
   return {...loaded, POSTGRES_TLS_MODE: loaded.POSTGRES_TLS_MODE};
 }
 
@@ -90,4 +95,18 @@ function assertNonNegative(name: string, value: number): void {
   if (!Number.isInteger(value) || value < 0) {
     throw new Error(`${name} must be a non-negative integer.`);
   }
+}
+
+function isLocalPostgresHost(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  if (normalized === 'localhost' || normalized === 'postgres') return true;
+  if (normalized === '::1' || normalized === '[::1]' || normalized === '0:0:0:0:0:0:0:1') {
+    return true;
+  }
+  const octets = normalized.split('.');
+  return (
+    octets.length === 4 &&
+    octets[0] === '127' &&
+    octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+  );
 }

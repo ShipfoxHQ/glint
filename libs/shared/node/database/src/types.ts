@@ -32,6 +32,21 @@ export interface Database {
   health(): Promise<DatabaseHealth>;
 }
 
+export function validateTransactionOptions(options: TransactionOptions): void {
+  if (
+    options.statementTimeoutMs !== undefined &&
+    (!Number.isInteger(options.statementTimeoutMs) || options.statementTimeoutMs < 1)
+  ) {
+    throw new Error('statementTimeoutMs must be a positive integer.');
+  }
+  if (
+    options.tenant &&
+    (typeof options.tenant.accountId !== 'string' || options.tenant.accountId.trim().length === 0)
+  ) {
+    throw new Error('Transaction tenant accountId must be a non-empty string.');
+  }
+}
+
 export class TransactionStateError extends Error {
   readonly code = 'transaction_not_active';
 

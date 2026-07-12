@@ -43,6 +43,32 @@ describe('database environment', () => {
   });
 
   it.each([
+    'localhost',
+    '127.0.0.2',
+    '::1',
+    'postgres',
+  ])('allows plaintext connections to local host %s', (host) => {
+    expect(
+      loadDatabaseEnvironment({POSTGRES_HOST: host, POSTGRES_TLS_MODE: 'disable'}),
+    ).toMatchObject({POSTGRES_HOST: host, POSTGRES_TLS_MODE: 'disable'});
+  });
+
+  it('rejects plaintext connections to remote hosts', () => {
+    expect(() =>
+      loadDatabaseEnvironment({
+        POSTGRES_HOST: 'pool.example.neon.tech',
+        POSTGRES_TLS_MODE: 'disable',
+      }),
+    ).toThrow('POSTGRES_TLS_MODE must be verify-full');
+  });
+
+  it('rejects a remote host when the TLS mode is omitted', () => {
+    expect(() => loadDatabaseEnvironment({POSTGRES_HOST: 'pool.example.neon.tech'})).toThrow(
+      'POSTGRES_TLS_MODE must be verify-full',
+    );
+  });
+
+  it.each([
     ['POSTGRES_MAX_CONNECTIONS', '0'],
     ['POSTGRES_CONNECTION_TIMEOUT_MS', '-1'],
     ['POSTGRES_IDLE_TIMEOUT_MS', '-1'],

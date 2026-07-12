@@ -64,6 +64,24 @@ export function databaseContractTests(
       ).rejects.toMatchObject({code: 'read_only_transaction'});
     });
 
+    it.each([
+      0,
+      -1,
+      1.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ])('rejects invalid statement timeout %s before running the transaction', async (statementTimeoutMs) => {
+      await expect(harnessTransaction(createHarness, {statementTimeoutMs})).rejects.toThrow(
+        'statementTimeoutMs must be a positive integer.',
+      );
+    });
+
+    it('rejects blank tenant identities before running the transaction', async () => {
+      await expect(harnessTransaction(createHarness, {tenant: {accountId: '   '}})).rejects.toThrow(
+        'Transaction tenant accountId must be a non-empty string.',
+      );
+    });
+
     it('keeps tenant-scoped values isolated', async () => {
       const harness = await createHarness();
       for (const [accountId, value] of [
@@ -136,4 +154,14 @@ export function databaseContractTests(
       await expect(harness.database.health()).resolves.toMatchObject({status: 'ready'});
     });
   });
+}
+
+async function harnessTransaction(
+  createHarness: () => Promise<DatabaseContractHarness> | DatabaseContractHarness,
+  options: Parameters<Database['transaction']>[1],
+): Promise<void> {
+  const harness = await createHarness();
+  await harness.database.transaction(() => {
+    throw new Error('Transaction operation must not run for invalid options.');
+  }, options);
 }

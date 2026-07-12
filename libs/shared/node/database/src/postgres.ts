@@ -16,6 +16,7 @@ import {
   ReadOnlyTransactionError,
   StatementTimeoutError,
   TransactionStateError,
+  validateTransactionOptions,
 } from './types.js';
 
 type EmptySchema = Record<string, never>;
@@ -53,6 +54,9 @@ export class PostgresDatabase implements Database {
   readonly #pool: Pool;
   #health: DatabaseHealth;
   #nextTransactionId = 1;
+  readonly #onPoolError = (error: Error): void => {
+    this.#recordUnavailable('idle', error);
+  };
 
   constructor(options: PostgresDatabaseOptions) {
     this.#pool = options.pool;
@@ -65,6 +69,7 @@ export class PostgresDatabase implements Database {
       checkedAtMs: this.#clock(),
       detail: 'PostgreSQL startup verification has not completed.',
     };
+    this.#pool.on('error', this.#onPoolError);
   }
 
   /** Verifies the connection once at process startup and caches readiness for dependency-free probes. */
@@ -84,6 +89,7 @@ export class PostgresDatabase implements Database {
     operation: (transaction: DatabaseTransaction) => Promise<T>,
     options: TransactionOptions = {},
   ): Promise<T> {
+    validateTransactionOptions(options);
     const statementTimeoutMs = options.statementTimeoutMs ?? MVP_DATABASE_POLICY.statementTimeoutMs;
     try {
       const result = await this.drizzle.transaction(
@@ -135,6 +141,18 @@ export class PostgresDatabase implements Database {
     return operation(postgresTransaction.drizzle);
   }
 
+  /** Observes concrete PostgreSQL operations that run outside Glint-managed transactions. */
+  async runObserved<T>(operationName: string, operation: () => Promise<T>): Promise<T> {
+    try {
+      const result = await operation();
+      this.#recordReady();
+      return result;
+    } catch (error) {
+      if (isConnectionFailure(error)) this.#recordUnavailable(operationName, error);
+      throw error;
+    }
+  }
+
   /** Returns cached state and never opens a connection or wakes a suspended managed database. */
   health(): Promise<DatabaseHealth> {
     return Promise.resolve(structuredClone(this.#health));
@@ -148,8 +166,12 @@ export class PostgresDatabase implements Database {
     }
   }
 
-  close(): Promise<void> {
-    return this.#close();
+  async close(): Promise<void> {
+    try {
+      await this.#close();
+    } finally {
+      this.#pool.off('error', this.#onPoolError);
+    }
   }
 
   #activeTransaction(transaction: DatabaseTransaction): GlintPostgresTransaction {
@@ -181,17 +203,23 @@ export async function createPostgresDatabase(
   options: CreatePostgresDatabaseOptions = {},
 ): Promise<PostgresDatabase> {
   const environment = options.environment ?? loadDatabaseEnvironment();
-  const pool = createPostgresClient(poolConfig(environment));
-  const database = new PostgresDatabase({
-    pool,
-    close: closePostgresClient,
-    ...(options.logger ? {logger: options.logger} : {}),
-  });
+  let pool: Pool | undefined;
+  let database: PostgresDatabase | undefined;
   try {
+    pool = createPostgresClient(poolConfig(environment));
+    database = new PostgresDatabase({
+      pool,
+      close: closePostgresClient,
+      ...(options.logger ? {logger: options.logger} : {}),
+    });
     await database.initialize();
     return database;
   } catch (error) {
-    await database.close();
+    if (database) {
+      await database.close();
+    } else if (pool) {
+      await closePostgresClient();
+    }
     throw error;
   }
 }
@@ -213,13 +241,15 @@ export function poolConfig(environment: DatabaseEnvironment): PoolConfig {
 
 type IsolationLevel = 'read committed' | 'repeatable read' | 'serializable';
 
-function mapPostgresError(
+export function mapPostgresError(
   error: unknown,
   options: {readonly readOnly?: boolean; readonly statementTimeoutMs: number},
 ): unknown {
   const code = databaseErrorCode(error);
   if (options.readOnly && code === '25006') return new ReadOnlyTransactionError();
-  if (code === '57014') return new StatementTimeoutError(options.statementTimeoutMs);
+  if (code === '57014' && databaseErrorMessageIncludes(error, 'statement timeout')) {
+    return new StatementTimeoutError(options.statementTimeoutMs);
+  }
   return error;
 }
 
@@ -232,7 +262,14 @@ function isConnectionFailure(error: unknown): boolean {
       code === '57P03' ||
       code === 'ECONNREFUSED' ||
       code === 'ECONNRESET' ||
-      code === 'ETIMEDOUT',
+      code === 'ETIMEDOUT' ||
+      code === 'ENOTFOUND' ||
+      code === 'EHOSTUNREACH' ||
+      code === 'EPIPE' ||
+      code === 'ECONNABORTED' ||
+      databaseErrorMessageIncludes(error, 'connection terminated unexpectedly') ||
+      databaseErrorMessageIncludes(error, 'connection terminated due to connection timeout') ||
+      databaseErrorMessageIncludes(error, 'timeout exceeded when trying to connect'),
   );
 }
 
@@ -259,4 +296,17 @@ function databaseErrorCode(error: unknown): string | undefined {
     candidate = 'cause' in candidate ? candidate.cause : undefined;
   }
   return undefined;
+}
+
+function databaseErrorMessageIncludes(error: unknown, expected: string): boolean {
+  let candidate = error;
+  const seen = new Set<object>();
+  while (candidate && typeof candidate === 'object' && !seen.has(candidate)) {
+    seen.add(candidate);
+    if (candidate instanceof Error && candidate.message.toLowerCase().includes(expected)) {
+      return true;
+    }
+    candidate = 'cause' in candidate ? candidate.cause : undefined;
+  }
+  return false;
 }

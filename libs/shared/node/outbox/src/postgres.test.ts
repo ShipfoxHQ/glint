@@ -6,7 +6,7 @@ import {
   runOrderedMigrations,
 } from '@glint/node-database';
 import {closePostgresClient, createPostgresClient, type Pool} from '@shipfox/node-postgres';
-import {afterAll, beforeAll, describe, expect, it} from '@shipfox/vitest/vi';
+import {afterAll, beforeAll, describe, expect, it, vi} from '@shipfox/vitest/vi';
 import {sql} from 'drizzle-orm';
 import {transactionalOutboxContractTests} from './contract-test-kit.js';
 import {POSTGRES_OUTBOX_MIGRATION, PostgresTransactionalOutbox} from './postgres.js';
@@ -15,15 +15,18 @@ const integrationEnabled = process.env.GLINT_POSTGRES_TEST === '1';
 
 describe.runIf(integrationEnabled)('PostgresTransactionalOutbox PostgreSQL 18 contract', () => {
   let databaseName = '';
-  let database: PostgresDatabase;
-  let pool: Pool;
+  let database: PostgresDatabase | undefined;
+  let pool: Pool | undefined;
 
   beforeAll(async () => {
     const baseConfig = poolConfig(loadDatabaseEnvironment());
     databaseName = `glint_outbox_test_${randomUUID().replaceAll('-', '')}`;
     const adminPool = createPostgresClient({...baseConfig, database: 'postgres'});
-    await adminPool.query(`CREATE DATABASE ${databaseName}`);
-    await closePostgresClient();
+    try {
+      await adminPool.query(`CREATE DATABASE ${databaseName}`);
+    } finally {
+      await closePostgresClient();
+    }
 
     pool = createPostgresClient({...baseConfig, database: databaseName});
     database = new PostgresDatabase({pool, close: closePostgresClient});
@@ -43,16 +46,25 @@ describe.runIf(integrationEnabled)('PostgresTransactionalOutbox PostgreSQL 18 co
   });
 
   afterAll(async () => {
-    await database.close();
+    if (database) {
+      await database.close();
+    } else {
+      await closePostgresClient();
+    }
+    if (!databaseName) return;
     const adminPool = createPostgresClient({
       ...poolConfig(loadDatabaseEnvironment()),
       database: 'postgres',
     });
-    await adminPool.query(`DROP DATABASE ${databaseName} WITH (FORCE)`);
-    await closePostgresClient();
+    try {
+      await adminPool.query(`DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE)`);
+    } finally {
+      await closePostgresClient();
+    }
   });
 
   transactionalOutboxContractTests('postgres', async () => {
+    if (!database || !pool) throw new Error('PostgreSQL outbox fixture was not initialized.');
     await pool.query('TRUNCATE glint_outbox, glint_outbox_domain');
     let now = Date.parse('2030-01-01T00:00:00Z');
     return {
@@ -65,12 +77,14 @@ describe.runIf(integrationEnabled)('PostgresTransactionalOutbox PostgreSQL 18 co
   });
 
   it('commits and rolls back a domain write with its event atomically', async () => {
+    if (!database || !pool) throw new Error('PostgreSQL outbox fixture was not initialized.');
+    const activeDatabase = database;
     await pool.query('TRUNCATE glint_outbox, glint_outbox_domain');
     const now = new Date('2030-01-01T00:00:00Z');
-    const outbox = new PostgresTransactionalOutbox({database, clock: () => now});
+    const outbox = new PostgresTransactionalOutbox({database: activeDatabase, clock: () => now});
 
-    await database.transaction(async (transaction) => {
-      await database.useTransaction(transaction, async (tx) => {
+    await activeDatabase.transaction(async (transaction) => {
+      await activeDatabase.useTransaction(transaction, async (tx) => {
         await tx.execute(sql`
           INSERT INTO glint_outbox_domain (id, value) VALUES ('committed', 'yes')
         `);
@@ -80,14 +94,14 @@ describe.runIf(integrationEnabled)('PostgresTransactionalOutbox PostgreSQL 18 co
         topic: 'foundation.probe.v1',
         payload: {id: 'committed'},
         occurredAt: now,
-        correlationId: 'correlation-1',
-        traceParent: '00-trace-parent',
+        correlationId: '',
+        traceParent: '',
       });
     });
 
     await expect(
-      database.transaction(async (transaction) => {
-        await database.useTransaction(transaction, async (tx) => {
+      activeDatabase.transaction(async (transaction) => {
+        await activeDatabase.useTransaction(transaction, async (tx) => {
           await tx.execute(sql`
             INSERT INTO glint_outbox_domain (id, value) VALUES ('rolled-back', 'no')
           `);
@@ -111,12 +125,13 @@ describe.runIf(integrationEnabled)('PostgresTransactionalOutbox PostgreSQL 18 co
     });
     expect(delivery?.event).toMatchObject({
       id: 'domain:committed',
-      correlationId: 'correlation-1',
-      traceParent: '00-trace-parent',
+      correlationId: '',
+      traceParent: '',
     });
   });
 
   it('exposes bounded dead-letter results through the neutral adapter', async () => {
+    if (!database || !pool) throw new Error('PostgreSQL outbox fixture was not initialized.');
     await pool.query('TRUNCATE glint_outbox');
     const now = new Date('2030-01-01T00:00:00Z');
     const outbox = new PostgresTransactionalOutbox({
@@ -144,5 +159,15 @@ describe.runIf(integrationEnabled)('PostgresTransactionalOutbox PostgreSQL 18 co
     await expect(
       outbox.claim({dispatcherId: 'dispatcher', maximumEvents: 1, leaseDurationMs: 1_000}),
     ).resolves.toEqual([]);
+  });
+
+  it('reports cached health without querying PostgreSQL', async () => {
+    if (!database || !pool) throw new Error('PostgreSQL outbox fixture was not initialized.');
+    const outbox = new PostgresTransactionalOutbox({database});
+    const query = vi.spyOn(pool, 'query');
+    const callsBeforeHealth = query.mock.calls.length;
+
+    await expect(outbox.health()).resolves.toMatchObject({status: 'ready'});
+    expect(query).toHaveBeenCalledTimes(callsBeforeHealth);
   });
 });

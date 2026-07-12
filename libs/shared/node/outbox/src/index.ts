@@ -1,4 +1,7 @@
-export {InMemoryTransactionalOutbox} from './in-memory.js';
+export {
+  InMemoryTransactionalOutbox,
+  type InMemoryTransactionalOutboxOptions,
+} from './in-memory.js';
 export {
   POSTGRES_OUTBOX_MIGRATION,
   PostgresTransactionalOutbox,

@@ -65,8 +65,8 @@ export class PostgresTransactionalOutbox implements TransactionalOutbox {
   ): Promise<{readonly status: 'created' | 'duplicate'}> {
     const payload: StoredEventEnvelope<TPayload> = {
       payload: event.payload,
-      ...(event.correlationId ? {correlationId: event.correlationId} : {}),
-      ...(event.traceParent ? {traceParent: event.traceParent} : {}),
+      ...(event.correlationId === undefined ? {} : {correlationId: event.correlationId}),
+      ...(event.traceParent === undefined ? {} : {traceParent: event.traceParent}),
     };
     return this.#database.useTransaction(transaction, (tx) =>
       writeIdempotentOutboxEvent(tx, this.#table, {
@@ -85,19 +85,25 @@ export class PostgresTransactionalOutbox implements TransactionalOutbox {
     readonly leaseDurationMs: number;
   }): Promise<readonly OutboxDelivery[]> {
     void input.dispatcherId;
-    const claimed = await this.#outbox.claim<StoredEventEnvelope>({
-      batchSize: input.maximumEvents,
-      leaseDurationMs: input.leaseDurationMs,
-      now: this.#clock(),
-    });
+    const claimed = await this.#database.runObserved('outbox.claim', () =>
+      this.#outbox.claim<StoredEventEnvelope>({
+        batchSize: input.maximumEvents,
+        leaseDurationMs: input.leaseDurationMs,
+        now: this.#clock(),
+      }),
+    );
     return claimed.map((delivery) => ({
       event: {
         id: delivery.idempotencyKey,
         topic: delivery.type,
         payload: delivery.payload.payload,
         occurredAt: delivery.createdAt,
-        ...(delivery.payload.correlationId ? {correlationId: delivery.payload.correlationId} : {}),
-        ...(delivery.payload.traceParent ? {traceParent: delivery.payload.traceParent} : {}),
+        ...(delivery.payload.correlationId === undefined
+          ? {}
+          : {correlationId: delivery.payload.correlationId}),
+        ...(delivery.payload.traceParent === undefined
+          ? {}
+          : {traceParent: delivery.payload.traceParent}),
       },
       attempts: delivery.attempts,
       deliveryId: delivery.id,
@@ -110,11 +116,13 @@ export class PostgresTransactionalOutbox implements TransactionalOutbox {
     readonly deliveryId: string;
     readonly leaseToken: string;
   }): Promise<OutboxAcknowledgeResult> {
-    return this.#outbox.acknowledge({
-      id: input.deliveryId,
-      leaseToken: input.leaseToken,
-      now: this.#clock(),
-    });
+    return this.#database.runObserved('outbox.acknowledge', () =>
+      this.#outbox.acknowledge({
+        id: input.deliveryId,
+        leaseToken: input.leaseToken,
+        now: this.#clock(),
+      }),
+    );
   }
 
   retry(input: {
@@ -123,33 +131,23 @@ export class PostgresTransactionalOutbox implements TransactionalOutbox {
     readonly delayMs: number;
     readonly failure?: unknown;
   }): Promise<OutboxRetryResult> {
-    return this.#outbox.retry({
-      id: input.deliveryId,
-      leaseToken: input.leaseToken,
-      delayMs: input.delayMs,
-      failure: input.failure ?? new Error('Outbox delivery requested a retry.'),
-      now: this.#clock(),
-    });
+    return this.#database.runObserved('outbox.retry', () =>
+      this.#outbox.retry({
+        id: input.deliveryId,
+        leaseToken: input.leaseToken,
+        delayMs: input.delayMs,
+        failure: input.failure ?? new Error('Outbox delivery requested a retry.'),
+        now: this.#clock(),
+      }),
+    );
   }
 
   async health(): Promise<OutboxHealth> {
-    const checkedAt = this.#clock();
-    try {
-      const health = await this.#outbox.health({now: checkedAt});
-      return {
-        status: 'ready',
-        checkedAt: health.checkedAt,
-        ...(health.oldestPendingAt ? {oldestPendingAt: health.oldestPendingAt} : {}),
-        ...(health.oldestPendingAgeMs === undefined
-          ? {}
-          : {oldestPendingAgeMs: health.oldestPendingAgeMs}),
-      };
-    } catch (error) {
-      return {
-        status: 'unavailable',
-        checkedAt,
-        detail: error instanceof Error ? error.message : 'PostgreSQL outbox health query failed.',
-      };
-    }
+    const health = await this.#database.health();
+    return {
+      status: health.status,
+      checkedAt: new Date(health.checkedAtMs),
+      ...(health.detail === undefined ? {} : {detail: health.detail}),
+    };
   }
 }

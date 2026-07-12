@@ -18,7 +18,9 @@ await database.transaction(async (transaction) => {
 
 `createPostgresDatabase()` validates configuration, creates the pool, and runs one startup
 `SELECT 1`. It never runs migrations. Transactions default to the five-second MVP statement
-deadline and support read-only, isolation, and transaction-local tenant context options.
+deadline and support read-only, isolation, and transaction-local tenant context options. The
+Shipfox PostgreSQL factory owns one process-wide pool; construct it once in each composition root
+and close it during graceful shutdown.
 
 `database.health()` returns cached adapter state. It does not query PostgreSQL, so public health
 checks do not wake a suspended Neon database. Startup and runtime connection failures update the
@@ -49,7 +51,7 @@ uses a stable, module-specific migration history table. API and worker startup m
 | `POSTGRES_MAX_CONNECTIONS` | `10` | `1` per Lambda execution environment |
 | `POSTGRES_CONNECTION_TIMEOUT_MS` | `5000` | `5000` |
 | `POSTGRES_IDLE_TIMEOUT_MS` | `10000` | `10000` for scale-to-zero |
-| `POSTGRES_TLS_MODE` | `disable` | `verify-full` |
+| `POSTGRES_TLS_MODE` | `disable` | `verify-full` (required for non-local hosts) |
 
 The root `compose.yml` supplies these local defaults and creates the separate `glint_test`
 database. Production and migration processes use the same schema with their deployed environment:
@@ -66,3 +68,6 @@ docker compose up -d --wait
 mise run database:test
 docker compose down
 ```
+
+Each integration run creates and drops a uniquely named empty database, so migration tests exercise
+the fresh-database path without deleting the persistent local-development volume.

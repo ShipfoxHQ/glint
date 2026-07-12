@@ -22,7 +22,6 @@ describe('ordered migration model', () => {
   });
 
   it('rejects duplicate module names before applying the duplicate', async () => {
-    const calls: string[] = [];
     const fakeDatabase = {} as PostgresDatabase['drizzle'];
     await expect(
       runOrderedMigrations(fakeDatabase, [
@@ -30,37 +29,48 @@ describe('ordered migration model', () => {
         {name: ' SAME ', directory: dependentDirectory},
       ]),
     ).rejects.toThrow('Duplicate migration module');
-    expect(calls).toEqual([]);
   });
 });
 
 describe.runIf(integrationEnabled)('ordered PostgreSQL 18 migrations', () => {
   let databaseName = '';
-  let database: PostgresDatabase;
-  let pool: Pool;
+  let database: PostgresDatabase | undefined;
+  let pool: Pool | undefined;
 
   beforeAll(async () => {
     const baseConfig = poolConfig(loadDatabaseEnvironment());
     databaseName = `glint_migration_test_${randomUUID().replaceAll('-', '')}`;
     const adminPool = createPostgresClient({...baseConfig, database: 'postgres'});
-    await adminPool.query(`CREATE DATABASE ${databaseName}`);
-    await closePostgresClient();
+    try {
+      await adminPool.query(`CREATE DATABASE ${databaseName}`);
+    } finally {
+      await closePostgresClient();
+    }
     pool = createPostgresClient({...baseConfig, database: databaseName});
     database = new PostgresDatabase({pool, close: closePostgresClient});
     await database.initialize();
   });
 
   afterAll(async () => {
-    await database.close();
+    if (database) {
+      await database.close();
+    } else {
+      await closePostgresClient();
+    }
+    if (!databaseName) return;
     const adminPool = createPostgresClient({
       ...poolConfig(loadDatabaseEnvironment()),
       database: 'postgres',
     });
-    await adminPool.query(`DROP DATABASE ${databaseName} WITH (FORCE)`);
-    await closePostgresClient();
+    try {
+      await adminPool.query(`DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE)`);
+    } finally {
+      await closePostgresClient();
+    }
   });
 
   it('runs fresh migrations once in the provided dependency order', async () => {
+    if (!database || !pool) throw new Error('PostgreSQL migration fixture was not initialized.');
     const ordered = [
       {name: 'foundation', directory: foundationDirectory},
       {name: 'dependent', directory: dependentDirectory},

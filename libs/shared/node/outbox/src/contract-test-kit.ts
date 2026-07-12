@@ -62,15 +62,11 @@ export function transactionalOutboxContractTests(
       expect(second?.attempts).toBe(2);
     });
 
-    it('acknowledges successful dispatch and exposes pending age health', async () => {
+    it('acknowledges successful dispatch and exposes provider-neutral health', async () => {
       const {database, outbox, advanceBy} = await createHarness();
       await database.transaction((transaction) => outbox.append(transaction, event));
       await advanceBy(250);
-      await expect(outbox.health()).resolves.toMatchObject({
-        status: 'ready',
-        oldestPendingAgeMs: expect.any(Number),
-      });
-      expect((await outbox.health()).oldestPendingAgeMs).toBeGreaterThan(0);
+      await expect(outbox.health()).resolves.toMatchObject({status: 'ready'});
       const [delivery] = await outbox.claim({
         dispatcherId: 'dispatcher',
         maximumEvents: 1,
@@ -130,6 +126,26 @@ export function transactionalOutboxContractTests(
         leaseDurationMs: 1_000,
       });
       expect(retried?.attempts).toBe(2);
+    });
+
+    it('dead-letters an event after the bounded attempt count', async () => {
+      const {database, outbox} = await createHarness();
+      await database.transaction((transaction) => outbox.append(transaction, event));
+
+      for (let attempt = 1; attempt <= 5; attempt += 1) {
+        const [delivery] = await outbox.claim({
+          dispatcherId: `dispatcher-${attempt}`,
+          maximumEvents: 1,
+          leaseDurationMs: 1_000,
+        });
+        if (!delivery) throw new Error(`Expected delivery attempt ${attempt}`);
+        const result = await outbox.retry({...delivery, delayMs: 0, failure: new Error('poison')});
+        expect(result.status).toBe(attempt === 5 ? 'dead-lettered' : 'retry-scheduled');
+      }
+
+      await expect(
+        outbox.claim({dispatcherId: 'final', maximumEvents: 1, leaseDurationMs: 1_000}),
+      ).resolves.toEqual([]);
     });
   });
 }
