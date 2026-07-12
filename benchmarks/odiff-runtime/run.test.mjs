@@ -5,11 +5,11 @@ import test from 'node:test';
 import {fileURLToPath} from 'node:url';
 
 import {
-  expectedExitCode,
+  MAX_TIMER_DELAY_MS,
   parsePositiveInteger,
-  runtimeExitIsSafe,
-  selectBurstWork,
-} from './run.mjs';
+  parseTimerDelay,
+} from './process-control.mjs';
+import {expectedExitCode, runtimeExitIsSafe, selectBurstWork} from './run.mjs';
 
 const corpusDirectory = fileURLToPath(new URL('../corpus/v1', import.meta.url));
 const manifest = JSON.parse(await readFile(path.join(corpusDirectory, 'manifest.json'), 'utf8'));
@@ -52,6 +52,14 @@ test('requires benchmark iteration and timeout settings to be positive integers'
   assert.throws(() => parsePositiveInteger('-1', 'iterations'), /positive integer/);
   assert.throws(() => parsePositiveInteger('1.5', 'iterations'), /positive integer/);
   assert.throws(() => parsePositiveInteger('invalid', 'iterations'), /positive integer/);
+});
+
+test('rejects timeout settings above the Node timer limit', () => {
+  assert.equal(parseTimerDelay(String(MAX_TIMER_DELAY_MS), 'timeout'), MAX_TIMER_DELAY_MS);
+  assert.throws(
+    () => parseTimerDelay(String(MAX_TIMER_DELAY_MS + 1), 'timeout'),
+    /must not exceed 2147483647/,
+  );
 });
 
 test('separates runtime safety from engine-quality classification', () => {

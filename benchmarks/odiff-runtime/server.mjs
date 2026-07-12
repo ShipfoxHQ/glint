@@ -2,31 +2,18 @@ import {spawn, spawnSync} from 'node:child_process';
 import http from 'node:http';
 import process from 'node:process';
 
+import {killProcessTree, parseTimerDelay} from './process-control.mjs';
+
 const ENGINE_VERSION = '4.3.8';
 const port = Number(process.env.PORT ?? 8080);
-const childTimeoutMs = Number(process.env.GLINT_BENCH_CHILD_TIMEOUT_MS ?? 9_000);
+const childTimeoutMs = parseTimerDelay(
+  process.env.GLINT_BENCH_CHILD_TIMEOUT_MS ?? 9_000,
+  'GLINT_BENCH_CHILD_TIMEOUT_MS',
+);
 const profile = process.env.GLINT_BENCH_PROFILE ?? 'local';
 
 function emit(record) {
   process.stdout.write(`${JSON.stringify({...record, profile})}\n`);
-}
-
-function killProcessTree(child) {
-  if (child.exitCode !== null || child.signalCode !== null) {
-    return;
-  }
-
-  try {
-    if (process.platform === 'win32') {
-      child.kill('SIGKILL');
-    } else {
-      process.kill(-child.pid, 'SIGKILL');
-    }
-  } catch (error) {
-    if (error.code !== 'ESRCH') {
-      throw error;
-    }
-  }
 }
 
 function runIsolated(overrides) {

@@ -13,6 +13,7 @@ RUN apt-get update \
 WORKDIR /benchmark
 
 COPY --chown=node:node benchmarks/corpus/v1 /benchmark/corpus
+COPY --chown=node:node benchmarks/odiff-runtime/process-control.mjs /benchmark/process-control.mjs
 COPY --chown=node:node benchmarks/odiff-runtime/run.mjs /benchmark/run.mjs
 COPY --chown=node:node benchmarks/odiff-runtime/server.mjs /benchmark/server.mjs
 

@@ -5,6 +5,12 @@ import path from 'node:path';
 import process from 'node:process';
 import {fileURLToPath} from 'node:url';
 
+import {
+  killProcessTree,
+  parsePositiveInteger,
+  parseTimerDelay,
+} from './process-control.mjs';
+
 const DEFAULT_CORPUS = fileURLToPath(new URL('../corpus/v1', import.meta.url));
 const DEFAULT_OUTPUT = '/tmp/glint-odiff-benchmark';
 const ENGINE_VERSION = '4.3.8';
@@ -97,32 +103,6 @@ export function runtimeExitIsSafe(testCase, exitCode) {
     return exitCode === 1;
   }
   return exitCode === 0 || exitCode === 21 || exitCode === 22;
-}
-
-export function parsePositiveInteger(value, name) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer`);
-  }
-  return parsed;
-}
-
-function killProcessTree(child) {
-  if (child.exitCode !== null || child.signalCode !== null) {
-    return;
-  }
-
-  try {
-    if (process.platform === 'win32') {
-      child.kill('SIGKILL');
-    } else {
-      process.kill(-child.pid, 'SIGKILL');
-    }
-  } catch (error) {
-    if (error.code !== 'ESRCH') {
-      throw error;
-    }
-  }
 }
 
 async function runProcess({args, outputDirectory, timeoutMs, timeFile}) {
@@ -298,7 +278,7 @@ export async function main() {
   const outputDirectory = process.env.GLINT_BENCH_OUTPUT_DIR ?? DEFAULT_OUTPUT;
   const profile = process.env.GLINT_BENCH_PROFILE ?? 'local';
   const mode = process.env.GLINT_BENCH_MODE ?? 'suite';
-  const timeoutMs = parsePositiveInteger(
+  const timeoutMs = parseTimerDelay(
     process.env.GLINT_BENCH_TIMEOUT_MS ?? 10_000,
     'GLINT_BENCH_TIMEOUT_MS',
   );
