@@ -209,6 +209,9 @@ importers:
       '@shipfox/node-opentelemetry':
         specifier: 0.4.1
         version: 0.4.1
+      '@shipfox/redact':
+        specifier: 0.2.0
+        version: 0.2.0
     devDependencies:
       '@shipfox/biome':
         specifier: 1.8.1
@@ -1503,6 +1506,9 @@ packages:
 
   '@shipfox/node-opentelemetry@0.4.1':
     resolution: {integrity: sha512-bvSVSIlZYGhujcPYr7jNSFxxMcHFcrWsSVRnxiOauygQzZ4gaRIhrGML78uCl/PiohtMjDj7s2GEGMH/pK7fkQ==}
+
+  '@shipfox/redact@0.2.0':
+    resolution: {integrity: sha512-VOaBHHl/cLPGvRNXMhTQ8RqTFAGdfkDCs/XpR1znEyOJ46Hcauab2toWdMK9ZDQsb7VmfrnzDHVMNltkIPJE0g==}
 
   '@shipfox/swc@1.2.5':
     resolution: {integrity: sha512-aNj8Ern+VdwyHkwAo3c8Ip9rcWqh6VfDAlDOTbuQ2nXlbrKKtx/X2L3sEyYC3YwNJdClQ/1oMrrwVHnPAUTmFw==}
@@ -4851,6 +4857,8 @@ snapshots:
       '@shipfox/node-log': 0.3.1
     transitivePeerDependencies:
       - supports-color
+
+  '@shipfox/redact@0.2.0': {}
 
   '@shipfox/swc@1.2.5':
     dependencies:

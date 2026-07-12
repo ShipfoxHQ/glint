@@ -1,3 +1,4 @@
+import {createRedactor} from '@shipfox/redact';
 import type {CorrelationContextStore} from './correlation.js';
 
 export type LogAttributes = Readonly<Record<string, unknown>>;
@@ -12,104 +13,6 @@ export interface StructuredLogger {
   warn(message: string, attributes?: LogAttributes): void;
 }
 
-const redacted = '[REDACTED]';
-const sensitiveKey =
-  /(?:authorization|cookie|credential|password|private[_-]?key|secret|signature|token|api[_-]?key)/i;
-const signedQueryKey =
-  /^(?:googleaccessid|policy|signature|sig|x-amz-(?:algorithm|credential|date|expires|security-token|signature|signedheaders))$/i;
-const sensitiveTextPair =
-  /(\b(?:access[_-]?token|api[_-]?key|authorization|credential|password|refresh[_-]?token|secret|signature|sig|token|x-amz-signature)\b)\s*[:=]\s*[^\s,;&]+/gi;
-
-export interface Redactor {
-  redact<T>(value: T): T;
-}
-
-function redactUrl(value: string): string {
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
-    return value;
-  }
-
-  if (parsed.username || parsed.password) {
-    parsed.username = redacted;
-    parsed.password = redacted;
-  }
-
-  const signed = [...parsed.searchParams.keys()].some((key) => signedQueryKey.test(key));
-  if (signed) {
-    parsed.search = `?${redacted}`;
-    parsed.hash = '';
-    return parsed.toString();
-  }
-
-  for (const key of [...parsed.searchParams.keys()]) {
-    if (sensitiveKey.test(key)) parsed.searchParams.set(key, redacted);
-  }
-
-  if (parsed.hash) {
-    parsed.hash = parsed.hash.slice(1).replace(sensitiveTextPair, `$1=${redacted}`);
-  }
-
-  return parsed.toString();
-}
-
-function redactString(value: string, secrets: readonly string[]): string {
-  let result = value.replace(/Bearer\s+[^\s,;]+/gi, `Bearer ${redacted}`);
-  result = result.replace(/Authorization\s*[:=]\s*[^\r\n]+/gi, `Authorization: ${redacted}`);
-  result = result.replace(
-    /((?:set-)?cookie|x-hub-signature(?:-256)?)\s*[:=]\s*[^\r\n]+/gi,
-    `$1: ${redacted}`,
-  );
-  result = result.replace(sensitiveTextPair, `$1=${redacted}`);
-  result = result.replace(/https?:\/\/[^\s"'<>]+/gi, (url) => redactUrl(url));
-
-  for (const secret of secrets) {
-    result = result.split(secret).join(redacted);
-    const encoded = encodeURIComponent(secret);
-    if (encoded !== secret) result = result.split(encoded).join(redacted);
-  }
-
-  return result;
-}
-
-export function createRedactor(options: {readonly secrets?: readonly string[]} = {}): Redactor {
-  const secrets = [...new Set(options.secrets?.filter((secret) => secret.length > 0) ?? [])].sort(
-    (left, right) => right.length - left.length,
-  );
-
-  function visit(value: unknown, seen: WeakSet<object>): unknown {
-    if (typeof value === 'string') return redactString(value, secrets);
-    if (value === null || typeof value !== 'object') return value;
-    if (value instanceof URL) return redactString(redactUrl(value.toString()), secrets);
-    if (value instanceof Date) return value.toISOString();
-    if (seen.has(value)) return '[Circular]';
-    seen.add(value);
-
-    if (value instanceof Error) {
-      return {
-        cause: value.cause === undefined ? undefined : visit(value.cause, seen),
-        message: redactString(value.message, secrets),
-        name: value.name,
-        stack: value.stack ? redactString(value.stack, secrets) : undefined,
-      };
-    }
-    if (Array.isArray(value)) return value.map((item) => visit(item, seen));
-
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [
-        key,
-        sensitiveKey.test(key) ? redacted : visit(item, seen),
-      ]),
-    );
-  }
-
-  return {
-    redact: <T>(value: T): T => visit(value, new WeakSet()) as T,
-  };
-}
-
 export function createRedactingLogger(
   delegate: StructuredLogger,
   options: {
@@ -120,7 +23,7 @@ export function createRedactingLogger(
   const redactor = createRedactor({...(options.secrets ? {secrets: options.secrets} : {})});
 
   function attributes(input: LogAttributes = {}): LogAttributes {
-    return redactor.redact({...options.correlations?.current(), ...input});
+    return redactor.redact({...options.correlations?.current(), ...input}) as LogAttributes;
   }
 
   return {
