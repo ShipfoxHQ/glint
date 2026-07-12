@@ -49,5 +49,9 @@
   "glint": {
     "packageType": "shared-node",
     "environment": "node"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1084.0",
+    "@shipfox/node-opentelemetry": "0.4.1"
   }
 }
