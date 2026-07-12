@@ -21,9 +21,19 @@ export interface OutboxDelivery<TPayload = unknown> {
 export interface OutboxHealth {
   readonly status: 'ready' | 'unavailable';
   readonly checkedAt: Date;
+  readonly detail?: string;
   readonly oldestPendingAt?: Date;
   readonly oldestPendingAgeMs?: number;
 }
+
+export type OutboxAcknowledgeResult =
+  | {readonly status: 'acknowledged'}
+  | {readonly status: 'stale'};
+
+export type OutboxRetryResult =
+  | {readonly status: 'retry-scheduled'; readonly nextAttemptAt: Date}
+  | {readonly status: 'dead-lettered'}
+  | {readonly status: 'stale'};
 
 export interface TransactionalOutbox {
   append<TPayload>(
@@ -35,11 +45,15 @@ export interface TransactionalOutbox {
     readonly maximumEvents: number;
     readonly leaseDurationMs: number;
   }): Promise<readonly OutboxDelivery[]>;
-  acknowledge(input: {readonly deliveryId: string; readonly leaseToken: string}): Promise<void>;
+  acknowledge(input: {
+    readonly deliveryId: string;
+    readonly leaseToken: string;
+  }): Promise<OutboxAcknowledgeResult>;
   retry(input: {
     readonly deliveryId: string;
     readonly leaseToken: string;
     readonly delayMs: number;
-  }): Promise<void>;
+    readonly failure?: unknown;
+  }): Promise<OutboxRetryResult>;
   health(): Promise<OutboxHealth>;
 }

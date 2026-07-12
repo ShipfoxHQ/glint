@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:18.4
+    network_mode: bridge
+    environment:
+      POSTGRES_USER: "glint"
+      POSTGRES_PASSWORD: "local-glint"
+      PGDATA: "/data/postgres"
+    volumes:
+      - postgres:/data/postgres
+      - ./dev/postgres/init.sql:/docker-entrypoint-initdb.d/glint_postgres_init.sql
+    ports:
+      - 127.0.0.1:${GLINT_POSTGRES_PORT:-5432}:5432
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, pg_isready, -U, glint, -d, glint]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+
+volumes:
+  postgres:

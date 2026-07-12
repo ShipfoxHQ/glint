@@ -21,6 +21,20 @@ The individual `build`, `check`, `type`, `type:emit`, `test`, and `depcruise` ta
 available through `mise run <task>`. Package scripts remain independently runnable through
 pnpm as packages land.
 
+## Local services
+
+The root `compose.yml` is the local application stack. Start it with:
+
+```sh
+docker compose up -d --wait
+```
+
+It currently provides PostgreSQL 18 with persistent `glint` and isolated `glint_test` databases;
+later composition-root issues add their services to the same file. Set `GLINT_POSTGRES_PORT` when
+another workspace already owns port 5432 and expose the same value to processes as `POSTGRES_PORT`.
+With PostgreSQL running, `mise run database:test` exercises the real transaction, migration, and
+outbox contracts.
+
 ## Package architecture
 
 Start a real package from one of the eight shapes in [`templates/packages`](templates/packages/README.md). The templates encode package type and runtime metadata, root-only development/default exports, internal `#*` aliases, and a package-local `depcruise` task. They are excluded from the workspace so future features are not scaffolded before they own behavior.

@@ -35,6 +35,8 @@
     },
     "test": {
       "cache": true,
+      "env": ["GLINT_POSTGRES_TEST"],
+      "passThroughEnv": ["POSTGRES_*"],
       "dependsOn": ["^build", "build"]
     },
     "test:e2e": {

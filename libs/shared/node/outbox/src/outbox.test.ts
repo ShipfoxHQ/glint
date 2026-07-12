@@ -35,7 +35,7 @@ it('keeps delivery identities unique when the outbox is recreated', async () => 
     leaseDurationMs: 1_000,
   });
   if (!first) throw new Error('Expected first delivery');
-  await firstOutbox.acknowledge(first);
+  await expect(firstOutbox.acknowledge(first)).resolves.toEqual({status: 'acknowledged'});
 
   const secondOutbox = new InMemoryTransactionalOutbox(database, () => now, ids);
   await database.transaction((transaction) =>
@@ -53,5 +53,5 @@ it('keeps delivery identities unique when the outbox is recreated', async () => 
   });
   if (!second) throw new Error('Expected second delivery');
   expect(second.deliveryId).not.toBe(first.deliveryId);
-  await expect(secondOutbox.acknowledge(second)).resolves.toBeUndefined();
+  await expect(secondOutbox.acknowledge(second)).resolves.toEqual({status: 'acknowledged'});
 });

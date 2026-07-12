@@ -67,20 +67,26 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
   }
 
   async acknowledge(input: {readonly deliveryId: string; readonly leaseToken: string}) {
-    await this.#updateDelivery(input, (stored) => {
+    const updated = await this.#updateDelivery(input, (stored) => {
       stored.state = 'dispatched';
     });
+    return {status: updated ? ('acknowledged' as const) : ('stale' as const)};
   }
 
   async retry(input: {
     readonly deliveryId: string;
     readonly leaseToken: string;
     readonly delayMs: number;
+    readonly failure?: unknown;
   }) {
-    await this.#updateDelivery(input, (stored) => {
+    const nextAttemptAt = new Date(this.now().getTime() + input.delayMs);
+    const updated = await this.#updateDelivery(input, (stored) => {
       stored.state = 'pending';
-      stored.availableAt = new Date(this.now().getTime() + input.delayMs);
+      stored.availableAt = nextAttemptAt;
     });
+    return updated
+      ? {status: 'retry-scheduled' as const, nextAttemptAt}
+      : {status: 'stale' as const};
   }
 
   health(): Promise<OutboxHealth> {
@@ -105,11 +111,11 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
     return this.database.read<StoredEvent[]>(storageKey, transaction) ?? [];
   }
 
-  async #updateDelivery(
+  #updateDelivery(
     input: {readonly deliveryId: string; readonly leaseToken: string},
     update: (stored: StoredEvent) => void,
-  ): Promise<void> {
-    await this.database.transaction((transaction) => {
+  ): Promise<boolean> {
+    return this.database.transaction((transaction) => {
       const events = this.#events(transaction);
       const stored = events.find((candidate) => candidate.deliveryId === input.deliveryId);
       if (
@@ -118,14 +124,14 @@ export class InMemoryTransactionalOutbox implements TransactionalOutbox {
         !stored.leaseExpiresAt ||
         stored.leaseExpiresAt <= this.now()
       ) {
-        throw new Error(`Outbox delivery ${input.deliveryId} is stale`);
+        return Promise.resolve(false);
       }
       update(stored);
       delete stored.deliveryId;
       delete stored.leaseToken;
       delete stored.leaseExpiresAt;
       this.database.write(transaction, storageKey, events);
-      return Promise.resolve();
+      return Promise.resolve(true);
     });
   }
 
