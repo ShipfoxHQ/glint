@@ -43,7 +43,11 @@
     },
     "depcruise": {
       "cache": true,
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.dependency-cruiser.cjs"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.dependency-cruiser.cjs",
+        "$TURBO_ROOT$/architecture/dependency-policy.cjs"
+      ]
     },
     "dev": {
       "cache": false,

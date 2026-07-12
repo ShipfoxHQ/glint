@@ -38,8 +38,8 @@ run = "turbo test"
 
 [tasks.depcruise]
 description = "Check workspace dependency graphs"
-run = "turbo depcruise"
+run = "pnpm run depcruise:workspace && turbo depcruise"
 
 [tasks.verify]
 description = "Run every local workspace quality gate"
-run = "turbo check type type:emit build test depcruise"
+run = "pnpm run check:architecture && pnpm run test:architecture && pnpm run depcruise:workspace && turbo check type type:emit build test depcruise"

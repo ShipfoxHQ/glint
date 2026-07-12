@@ -1,0 +1,26 @@
+{
+  "name": "@glint/e2e-suite-example",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#*": "./src/*"
+  },
+  "scripts": {
+    "check": "shipfox-biome-check",
+    "depcruise": "shipfox-depcruise",
+    "test:e2e": "shipfox-vitest-run",
+    "type": "shipfox-tsc-check"
+  },
+  "devDependencies": {
+    "@shipfox/biome": "1.8.1",
+    "@shipfox/depcruise": "1.0.1",
+    "@shipfox/ts-config": "1.3.7",
+    "@shipfox/typescript": "1.1.5",
+    "@shipfox/vitest": "1.2.1"
+  },
+  "glint": {
+    "packageType": "e2e",
+    "environment": "node",
+    "e2eLayer": "suite"
+  }
+}

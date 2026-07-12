@@ -7,7 +7,14 @@
     "node": "24.17.0",
     "pnpm": "11.7.0"
   },
+  "scripts": {
+    "check:architecture": "shipfox-biome-check architecture templates",
+    "depcruise:workspace": "node architecture/check-workspace-graph.mjs",
+    "test:architecture": "node --test architecture/*.test.mjs"
+  },
   "devDependencies": {
+    "@shipfox/biome": "1.8.1",
+    "@shipfox/depcruise": "1.0.1",
     "turbo": "2.9.18"
   }
 }
