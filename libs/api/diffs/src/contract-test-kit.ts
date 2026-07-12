@@ -24,7 +24,11 @@ const crc32 = (bytes: Uint8Array): number => {
   return (crc ^ 0xffffffff) >>> 0;
 };
 
-const pngRasterByteLength = (header: Uint8Array, width: number, height: number): number => {
+const pngRasterLayout = (
+  header: Uint8Array,
+  width: number,
+  height: number,
+): {readonly byteLength: number; readonly filterOffsets: readonly number[]} => {
   const bitDepth = header[8];
   const colorType = header[9];
   const compressionMethod = header[10];
@@ -53,9 +57,17 @@ const pngRasterByteLength = (header: Uint8Array, width: number, height: number):
   if (!channels || bitDepth === undefined) throw new Error('Invalid PNG color encoding');
 
   const scanlineBytes = (pixels: number) => Math.ceil((pixels * channels * bitDepth) / 8) + 1;
-  if (interlaceMethod === 0) return scanlineBytes(width) * height;
+  if (interlaceMethod === 0) {
+    const bytesPerRow = scanlineBytes(width);
+    return {
+      byteLength: bytesPerRow * height,
+      filterOffsets: Array.from({length: height}, (_value, row) => row * bytesPerRow),
+    };
+  }
 
-  return [
+  const filterOffsets: number[] = [];
+  let byteLength = 0;
+  for (const [startX = 0, startY = 0, stepX = 1, stepY = 1] of [
     [0, 0, 8, 8],
     [4, 0, 8, 8],
     [0, 4, 4, 8],
@@ -63,11 +75,15 @@ const pngRasterByteLength = (header: Uint8Array, width: number, height: number):
     [0, 2, 2, 4],
     [1, 0, 2, 2],
     [0, 1, 1, 2],
-  ].reduce((total, [startX = 0, startY = 0, stepX = 1, stepY = 1]) => {
+  ]) {
     const passWidth = width <= startX ? 0 : Math.ceil((width - startX) / stepX);
     const passHeight = height <= startY ? 0 : Math.ceil((height - startY) / stepY);
-    return total + (passWidth === 0 ? 0 : scanlineBytes(passWidth) * passHeight);
-  }, 0);
+    if (passWidth === 0) continue;
+    const bytesPerRow = scanlineBytes(passWidth);
+    for (let row = 0; row < passHeight; row++) filterOffsets.push(byteLength + row * bytesPerRow);
+    byteLength += bytesPerRow * passHeight;
+  }
+  return {byteLength, filterOffsets};
 };
 
 const expectValidPng = (bytes: Uint8Array, width: number, height: number): void => {
@@ -94,13 +110,39 @@ const expectValidPng = (bytes: Uint8Array, width: number, height: number): void 
   expect(view.getUint32(20)).toBe(height);
   expect(chunks.at(-1)?.type).toBe('IEND');
   expect(chunks.at(-1)?.data.byteLength).toBe(0);
+  const firstImageDataIndex = chunks.findIndex(({type}) => type === 'IDAT');
+  expect(firstImageDataIndex).toBeGreaterThan(0);
+  const lastImageDataIndex = chunks.map(({type}) => type).lastIndexOf('IDAT');
+  expect(
+    chunks.slice(firstImageDataIndex, lastImageDataIndex + 1).every(({type}) => type === 'IDAT'),
+  ).toBe(true);
   const imageData = chunks.filter(({type}) => type === 'IDAT').map(({data}) => Buffer.from(data));
   expect(imageData.length).toBeGreaterThan(0);
   const header = chunks[0]?.data;
   if (!header) throw new Error('Missing PNG header');
-  const expectedRasterBytes = pngRasterByteLength(header, width, height);
-  const raster = inflateSync(Buffer.concat(imageData), {maxOutputLength: expectedRasterBytes + 1});
-  expect(raster.byteLength).toBe(expectedRasterBytes);
+  const bitDepth = header[8];
+  const colorType = header[9];
+  const paletteIndexes = chunks.flatMap(({type}, index) => (type === 'PLTE' ? [index] : []));
+  expect(paletteIndexes.length).toBeLessThanOrEqual(1);
+  if (colorType === 3) expect(paletteIndexes).toHaveLength(1);
+  if (colorType === 0 || colorType === 4) expect(paletteIndexes).toHaveLength(0);
+  const paletteIndex = paletteIndexes[0];
+  if (paletteIndex !== undefined) {
+    expect(paletteIndex).toBeGreaterThan(0);
+    expect(paletteIndex).toBeLessThan(firstImageDataIndex);
+    const paletteBytes = chunks[paletteIndex]?.data.byteLength ?? 0;
+    expect(paletteBytes).toBeGreaterThan(0);
+    expect(paletteBytes % 3).toBe(0);
+    expect(paletteBytes / 3).toBeLessThanOrEqual(colorType === 3 ? 2 ** (bitDepth ?? 0) : 256);
+  }
+  const rasterLayout = pngRasterLayout(header, width, height);
+  const raster = inflateSync(Buffer.concat(imageData), {
+    maxOutputLength: rasterLayout.byteLength + 1,
+  });
+  expect(raster.byteLength).toBe(rasterLayout.byteLength);
+  for (const filterOffset of rasterLayout.filterOffsets) {
+    expect(raster[filterOffset]).toBeLessThanOrEqual(4);
+  }
 };
 
 const withDimensions = (
