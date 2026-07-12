@@ -72,6 +72,15 @@ test('cross-package source and internal-alias imports are rejected', () => {
   );
 });
 
+test('resolved third-party package exports are not treated as workspace deep imports', () => {
+  assert.ok(
+    !violations(relativeDeepImportFixture, {
+      from: 'src/index.test.ts',
+      to: '../../../../node_modules/.pnpm/@shipfox+vitest@1.2.1/node_modules/@shipfox/vitest/dist/vitest-export.js',
+    }).includes('no-cross-package-source-imports'),
+  );
+});
+
 test('DTO purity holds for packages nested deeper than one level under libs/api', () => {
   const nestedDto = {
     currentDirectory: '/workspace/libs/api/vcs/core-dto',

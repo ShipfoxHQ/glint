@@ -1,0 +1,43 @@
+{
+  "name": "@glint/node-module",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "imports": {
+    "#*": "./src/*"
+  },
+  "exports": {
+    ".": {
+      "development": {
+        "types": "./src/index.ts",
+        "default": "./src/index.ts"
+      },
+      "default": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "swc",
+    "check": "shipfox-biome-check",
+    "depcruise": "shipfox-depcruise",
+    "test": "shipfox-vitest-run",
+    "type": "shipfox-tsc-check",
+    "type:emit": "shipfox-tsc-emit"
+  },
+  "devDependencies": {
+    "@shipfox/biome": "1.8.1",
+    "@shipfox/depcruise": "1.0.1",
+    "@shipfox/swc": "1.2.5",
+    "@shipfox/ts-config": "1.3.7",
+    "@shipfox/typescript": "1.1.5",
+    "@shipfox/vitest": "1.2.1",
+    "@types/node": "24.13.3"
+  },
+  "glint": {
+    "packageType": "shared-node",
+    "environment": "node"
+  }
+}
