@@ -1,5 +1,12 @@
+declare const sha256HexBrand: unique symbol;
+
 /** A SHA-256 digest serialized as exactly 64 lowercase hexadecimal characters. */
-export type Sha256Hex = string;
+export type Sha256Hex = string & {readonly [sha256HexBrand]: true};
+
+export function parseSha256Hex(value: string): Sha256Hex {
+  if (!/^[a-f0-9]{64}$/.test(value)) throw new InvalidSha256HexError(value);
+  return value as Sha256Hex;
+}
 
 export interface BlobMetadata {
   readonly key: string;
@@ -77,5 +84,14 @@ export class BlobChecksumMismatchError extends Error {
   ) {
     super(`Blob checksum mismatch: expected ${expected}, received ${actual}`);
     this.name = 'BlobChecksumMismatchError';
+  }
+}
+
+export class InvalidSha256HexError extends Error {
+  readonly code = 'invalid_sha256_hex';
+
+  constructor(readonly value: string) {
+    super('SHA-256 digests must contain exactly 64 lowercase hexadecimal characters');
+    this.name = 'InvalidSha256HexError';
   }
 }

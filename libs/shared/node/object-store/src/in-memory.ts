@@ -8,14 +8,15 @@ import type {
   SignedRead,
   SignedUploadInput,
 } from './types.js';
-import {BlobChecksumMismatchError} from './types.js';
+import {BlobChecksumMismatchError, parseSha256Hex} from './types.js';
 
 interface StoredBlob {
   readonly body: Uint8Array;
   readonly metadata: BlobMetadata;
 }
 
-const checksum = (body: Uint8Array) => createHash('sha256').update(body).digest('hex');
+const checksum = (body: Uint8Array) =>
+  parseSha256Hex(createHash('sha256').update(body).digest('hex'));
 const encodeKey = (key: string) => encodeURIComponent(key).replaceAll('%2F', '/');
 
 export class InMemoryBlobStore implements BlobStore {

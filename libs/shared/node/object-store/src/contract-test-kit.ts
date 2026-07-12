@@ -1,8 +1,10 @@
 import {describe, expect, it} from '@shipfox/vitest/vi';
 import type {BlobStore} from './types.js';
-import {MVP_BLOB_SIGNING_POLICY} from './types.js';
+import {MVP_BLOB_SIGNING_POLICY, parseSha256Hex} from './types.js';
 
-const SHA256_123 = '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81';
+const SHA256_123 = parseSha256Hex(
+  '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81',
+);
 
 export function blobStoreContractTests(
   name: string,
@@ -48,9 +50,12 @@ export function blobStoreContractTests(
           key: 'checksum-mismatch',
           body: Uint8Array.from([1, 2, 3]),
           contentType: 'image/png',
-          checksumSha256: SHA256_123.toUpperCase(),
+          checksumSha256: parseSha256Hex('0'.repeat(64)),
         }),
       ).rejects.toMatchObject({code: 'blob_checksum_mismatch'});
+      expect(() => parseSha256Hex(SHA256_123.toUpperCase())).toThrowError(
+        expect.objectContaining({code: 'invalid_sha256_hex'}),
+      );
     });
 
     it('deletes idempotently without exposing a listing capability', async () => {
@@ -88,11 +93,13 @@ export function blobStoreContractTests(
     it('signs bounded reads and reports readiness', async () => {
       const store = await createStore();
       const expiresAt = new Date('2030-01-01T00:00:00.000Z');
-      await expect(store.signRead({key: 'tenant/source/hash', expiresAt})).resolves.toMatchObject({
+      const signed = await store.signRead({key: 'tenant/source/hash', expiresAt});
+      expect(signed).toMatchObject({
         method: 'GET',
         key: 'tenant/source/hash',
         expiresAt,
       });
+      expect(decodeURIComponent(new URL(signed.url).pathname)).toContain('tenant/source/hash');
       await expect(store.health()).resolves.toMatchObject({status: 'ready'});
     });
   });

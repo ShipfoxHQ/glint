@@ -94,16 +94,41 @@ export function databaseContractTests(
       await harness.database.transaction((transaction) =>
         Promise.resolve(harness.write(transaction, 'snapshot', 'before')),
       );
-      await harness.database.transaction(
-        async (outer) => {
-          expect(await harness.read(outer, 'snapshot')).toBe('before');
-          await harness.database.transaction((inner) =>
-            Promise.resolve(harness.write(inner, 'snapshot', 'after')),
-          );
-          expect(await harness.read(outer, 'snapshot')).toBe('before');
+
+      let signalReaderStarted: () => void = () => undefined;
+      const readerStarted = new Promise<void>((resolve) => {
+        signalReaderStarted = resolve;
+      });
+      let signalWriterFinished: () => void = () => undefined;
+      let signalWriterFailed: (error: unknown) => void = () => undefined;
+      const writerFinished = new Promise<void>((resolve, reject) => {
+        signalWriterFinished = resolve;
+        signalWriterFailed = reject;
+      });
+
+      const reader = harness.database.transaction(
+        async (transaction) => {
+          expect(await harness.read(transaction, 'snapshot')).toBe('before');
+          signalReaderStarted();
+          await writerFinished;
+          expect(await harness.read(transaction, 'snapshot')).toBe('before');
         },
         {isolation: 'repeatable-read'},
       );
+      const writer = (async () => {
+        await readerStarted;
+        try {
+          await harness.database.transaction((transaction) =>
+            Promise.resolve(harness.write(transaction, 'snapshot', 'after')),
+          );
+          signalWriterFinished();
+        } catch (error) {
+          signalWriterFailed(error);
+          throw error;
+        }
+      })();
+
+      await Promise.all([reader, writer]);
     });
 
     it('provides a provider-neutral readiness result', async () => {

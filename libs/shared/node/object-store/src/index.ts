@@ -9,4 +9,9 @@ export type {
   SignedRead,
   SignedUploadInput,
 } from './types.js';
-export {BlobChecksumMismatchError, MVP_BLOB_SIGNING_POLICY} from './types.js';
+export {
+  BlobChecksumMismatchError,
+  InvalidSha256HexError,
+  MVP_BLOB_SIGNING_POLICY,
+  parseSha256Hex,
+} from './types.js';

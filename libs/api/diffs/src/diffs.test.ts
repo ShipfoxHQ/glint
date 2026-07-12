@@ -1,3 +1,4 @@
+import {inflateSync} from 'node:zlib';
 import {describe, expect, it} from '@shipfox/vitest/vi';
 import {diffEngineContractTests} from './contract-test-kit.js';
 import {DeterministicDiffEngine} from './in-memory.js';
@@ -45,6 +46,18 @@ describe('DeterministicDiffEngine limits', () => {
     expect(result.mask.bytes.subarray(0, 8)).toEqual(
       Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]),
     );
+    const view = new DataView(
+      result.mask.bytes.buffer,
+      result.mask.bytes.byteOffset,
+      result.mask.bytes.byteLength,
+    );
+    expect(view.getUint32(16)).toBe(result.width);
+    expect(view.getUint32(20)).toBe(result.height);
+
+    const idatLength = view.getUint32(33);
+    expect(new TextDecoder().decode(result.mask.bytes.subarray(37, 41))).toBe('IDAT');
+    const scanlines = inflateSync(result.mask.bytes.subarray(41, 41 + idatLength));
+    expect([...scanlines.subarray(0, 5)]).toEqual([0, 255, 0, 0, 255]);
     expect(new TextDecoder().decode(result.mask.bytes.subarray(-8, -4))).toBe('IEND');
   });
 });

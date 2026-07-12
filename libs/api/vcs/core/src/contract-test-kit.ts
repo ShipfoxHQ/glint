@@ -9,6 +9,7 @@ export interface VcsContractHarness {
   readonly headSha: string;
   readonly ancestorSha: string;
   readonly intermediateSha: string;
+  readonly unrelatedSha: string;
   readonly validWebhook: {
     readonly headers: Readonly<Record<string, string>>;
     readonly body: Uint8Array;
@@ -67,6 +68,9 @@ export function vcsProviderContractTests(
       await expect(
         harness.provider.isAncestor(harness.repositoryId, harness.intermediateSha, harness.headSha),
       ).resolves.toBe(true);
+      await expect(
+        harness.provider.isAncestor(harness.repositoryId, harness.unrelatedSha, harness.headSha),
+      ).resolves.toBe(false);
     });
 
     it('keeps one logical check and rejects out-of-order updates', async () => {

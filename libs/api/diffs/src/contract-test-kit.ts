@@ -37,6 +37,16 @@ export function diffEngineContractTests(
       expect(first.differentPixels).toBeGreaterThan(0);
       expect(first.differenceRatio).toBeGreaterThan(0);
       expect(first.mask.bytes.byteLength).toBeGreaterThan(0);
+      expect(first.mask.bytes.subarray(0, 8)).toEqual(
+        Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      );
+      const maskView = new DataView(
+        first.mask.bytes.buffer,
+        first.mask.bytes.byteOffset,
+        first.mask.bytes.byteLength,
+      );
+      expect(maskView.getUint32(16)).toBe(first.width);
+      expect(maskView.getUint32(20)).toBe(first.height);
       expect(first.regions.length).toBeGreaterThan(0);
     });
 
@@ -68,6 +78,38 @@ export function diffEngineContractTests(
           limits: {...limits, maximumDecodedPixels: 0},
         }),
       ).rejects.toMatchObject({code: 'decoded_pixels_exceeded'});
+      await expect(
+        engine.compare({
+          base: {
+            ...changed.base,
+            dimensions: {...changed.base.dimensions, width: limits.maximumWidth + 1},
+          },
+          candidate: {
+            ...changed.candidate,
+            dimensions: {...changed.candidate.dimensions, width: limits.maximumWidth + 1},
+          },
+          configuration,
+          limits,
+        }),
+      ).rejects.toMatchObject({code: 'dimensions_exceeded'});
+      await expect(
+        engine.compare({
+          base: {
+            ...changed.base,
+            dimensions: {...changed.base.dimensions, height: limits.maximumHeight + 1},
+          },
+          candidate: {
+            ...changed.candidate,
+            dimensions: {...changed.candidate.dimensions, height: limits.maximumHeight + 1},
+          },
+          configuration,
+          limits,
+        }),
+      ).rejects.toMatchObject({code: 'dimensions_exceeded'});
+    });
+
+    it('rejects non-positive image dimensions', async () => {
+      const {engine, changed, limits} = await createHarness();
       await expect(
         engine.compare({
           base: {...changed.base, dimensions: {...changed.base.dimensions, width: 0}},

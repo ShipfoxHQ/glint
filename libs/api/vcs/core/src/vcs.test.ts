@@ -37,6 +37,7 @@ vcsProviderContractTests('in-memory', () => {
     headSha: 'head',
     ancestorSha: 'base',
     intermediateSha: 'middle',
+    unrelatedSha: 'unrelated',
     validWebhook: {
       headers: {'x-glint-signature': 'valid'},
       body: new TextEncoder().encode(JSON.stringify(webhook)),

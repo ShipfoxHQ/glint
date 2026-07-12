@@ -1,3 +1,4 @@
+import {deflateSync} from 'node:zlib';
 import type {
   DiffConfiguration,
   DiffEngine,
@@ -11,12 +12,49 @@ import {DiffInputError} from './types.js';
 const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
   left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
 
-const transparentPng = Uint8Array.from(
-  Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
-    'base64',
-  ),
-);
+const PNG_SIGNATURE = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
+
+const crc32 = (bytes: Uint8Array): number => {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+};
+
+const pngChunk = (type: string, data: Uint8Array): Uint8Array => {
+  const typeBytes = Buffer.from(type, 'ascii');
+  const chunk = Buffer.alloc(12 + data.byteLength);
+  chunk.writeUInt32BE(data.byteLength, 0);
+  typeBytes.copy(chunk, 4);
+  Buffer.from(data).copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(Buffer.concat([typeBytes, Buffer.from(data)])), 8 + data.byteLength);
+  return Uint8Array.from(chunk);
+};
+
+const createDifferenceMask = (width: number, height: number): Uint8Array => {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 6;
+
+  const scanlines = Buffer.alloc((width * 4 + 1) * height);
+  scanlines[1] = 255;
+  scanlines[4] = 255;
+
+  return Uint8Array.from(
+    Buffer.concat([
+      Buffer.from(PNG_SIGNATURE),
+      Buffer.from(pngChunk('IHDR', header)),
+      Buffer.from(pngChunk('IDAT', deflateSync(scanlines))),
+      Buffer.from(pngChunk('IEND', new Uint8Array())),
+    ]),
+  );
+};
 
 export class DeterministicDiffEngine implements DiffEngine {
   readonly identity = {name: 'deterministic-fake', version: '1'} as const;
@@ -51,7 +89,7 @@ export class DeterministicDiffEngine implements DiffEngine {
         return {status: 'unchanged'};
       }
       const {width, height} = input.candidate.dimensions;
-      const mask = Uint8Array.from(transparentPng);
+      const mask = createDifferenceMask(width, height);
       if (mask.byteLength > input.limits.maximumOutputBytes) {
         throw new DiffInputError(
           'generated_artifact_exceeded',
