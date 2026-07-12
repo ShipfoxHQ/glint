@@ -33,6 +33,17 @@ export interface QueueHealth {
   readonly detail?: string;
 }
 
+export interface QueueTelemetry {
+  enqueued(input: {readonly duplicate: boolean; readonly queue: string}): void;
+  delivered(input: {
+    readonly attempt: number;
+    readonly jobName: string;
+    readonly queue: string;
+    readonly queueAgeMs: number;
+  }): void;
+  deadLettered(input: {readonly jobName: string; readonly queue: string}): void;
+}
+
 export interface JobQueue {
   enqueue<TPayload>(input: {
     readonly id: string;
@@ -68,6 +79,10 @@ export interface JobQueue {
 export const MVP_JOB_QUEUE_POLICY = {
   visibilityTimeoutMs: 90_000,
   maximumAttempts: 5,
+  maximumClaimBatchSize: 10,
+  maximumEnqueueDelayMs: 15 * 60 * 1_000,
+  maximumVisibilityMs: 12 * 60 * 60 * 1_000,
+  timingGranularityMs: 1_000,
   sourceRetentionMs: 4 * 24 * 60 * 60 * 1_000,
   deadLetterRetentionMs: 14 * 24 * 60 * 60 * 1_000,
   queueAgeWarningMs: 60_000,
@@ -80,5 +95,23 @@ export class StaleDeliveryError extends Error {
   constructor(readonly deliveryId: string) {
     super(`Delivery ${deliveryId} is no longer leased by this consumer`);
     this.name = 'StaleDeliveryError';
+  }
+}
+
+export class QueueCapabilityError extends Error {
+  readonly code = 'queue_capability';
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'QueueCapabilityError';
+  }
+}
+
+export class DeadLetterNotFoundError extends Error {
+  readonly code = 'dead_letter_not_found';
+
+  constructor(readonly deadLetterId: string) {
+    super(`Dead letter ${deadLetterId} is not available to redrive`);
+    this.name = 'DeadLetterNotFoundError';
   }
 }
