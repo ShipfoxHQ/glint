@@ -133,6 +133,21 @@ function createHarness() {
 jobQueueContractTests('Amazon SQS Standard', createHarness);
 
 describe('Amazon SQS adapter', () => {
+  it('rejects invalid long-poll configuration during construction', () => {
+    const {client} = createHarness();
+    for (const waitTimeSeconds of [-1, 1.5, 21, Number.NaN]) {
+      expect(
+        () =>
+          new SqsJobQueue({
+            client: client as unknown as SQSClient,
+            deadLetterQueueUrl,
+            queueUrl: sourceQueueUrl,
+            waitTimeSeconds,
+          }),
+      ).toThrow('Amazon SQS long polling must be a whole number from 0 to 20.');
+    }
+  });
+
   it('propagates correlation and W3C trace context in the provider-neutral job envelope', async () => {
     const {queue} = createHarness();
     await queue.enqueue({

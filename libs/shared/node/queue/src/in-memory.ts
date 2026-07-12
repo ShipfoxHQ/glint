@@ -83,8 +83,8 @@ export class InMemoryJobQueue implements JobQueue {
       if (!Number.isInteger(input.maximumJobs)) {
         throw new QueueCapabilityError('A claim size must be a whole number.');
       }
-      if (input.leaseDurationMs <= 0) {
-        throw new QueueCapabilityError('A delivery lease must be at least one second.');
+      if (!Number.isFinite(input.leaseDurationMs) || input.leaseDurationMs <= 0) {
+        throw new QueueCapabilityError('A delivery lease must be finite and at least one second.');
       }
       if (input.leaseDurationMs > MVP_JOB_QUEUE_POLICY.maximumVisibilityMs) {
         throw new QueueCapabilityError('A delivery lease cannot exceed 12 hours.');
@@ -137,8 +137,8 @@ export class InMemoryJobQueue implements JobQueue {
     readonly reason: string;
   }) {
     return Promise.resolve().then(() => {
-      if (input.delayMs < 0) {
-        throw new QueueCapabilityError('A retry delay cannot be negative.');
+      if (!Number.isFinite(input.delayMs) || input.delayMs < 0) {
+        throw new QueueCapabilityError('A retry delay must be finite and non-negative.');
       }
       if (input.delayMs > MVP_JOB_QUEUE_POLICY.maximumVisibilityMs) {
         throw new QueueCapabilityError('A retry delay cannot exceed 12 hours.');
@@ -162,8 +162,8 @@ export class InMemoryJobQueue implements JobQueue {
     readonly leaseDurationMs: number;
   }): Promise<Date> {
     return Promise.resolve().then(() => {
-      if (input.leaseDurationMs <= 0) {
-        throw new QueueCapabilityError('A delivery lease must be at least one second.');
+      if (!Number.isFinite(input.leaseDurationMs) || input.leaseDurationMs <= 0) {
+        throw new QueueCapabilityError('A delivery lease must be finite and at least one second.');
       }
       if (input.leaseDurationMs > MVP_JOB_QUEUE_POLICY.maximumVisibilityMs) {
         throw new QueueCapabilityError('A delivery lease cannot exceed 12 hours.');

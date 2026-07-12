@@ -98,6 +98,9 @@ export function jobQueueContractTests(
         queue.claim({consumerId: 'consumer', leaseDurationMs: 0, maximumJobs: 1}),
       ).rejects.toMatchObject({code: 'queue_capability'});
       await expect(
+        queue.claim({consumerId: 'consumer', leaseDurationMs: Number.NaN, maximumJobs: 1}),
+      ).rejects.toMatchObject({code: 'queue_capability'});
+      await expect(
         queue.claim({consumerId: 'consumer', leaseDurationMs: 1_000, maximumJobs: 11}),
       ).rejects.toMatchObject({code: 'queue_capability'});
       await expect(
@@ -121,6 +124,12 @@ export function jobQueueContractTests(
       ).rejects.toMatchObject({
         code: 'queue_capability',
       });
+      await expect(
+        queue.retry({...delivery, delayMs: Number.NaN, reason: 'invalid'}),
+      ).rejects.toMatchObject({code: 'queue_capability'});
+      await expect(
+        queue.extendLease({...delivery, leaseDurationMs: Number.NaN}),
+      ).rejects.toMatchObject({code: 'queue_capability'});
     });
 
     it('keeps an active lease exclusive to its consumer', async () => {

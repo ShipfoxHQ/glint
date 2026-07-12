@@ -87,7 +87,13 @@ export class SqsJobQueue implements JobQueue {
     this.#queueName = options.queueName ?? 'sqs';
     this.#queueUrl = options.queueUrl;
     this.#telemetry = options.telemetry ?? createQueueTelemetry();
-    this.#waitTimeSeconds = options.waitTimeSeconds ?? 20;
+    const waitTimeSeconds = options.waitTimeSeconds ?? 20;
+    if (!Number.isInteger(waitTimeSeconds) || waitTimeSeconds < 0 || waitTimeSeconds > 20) {
+      throw new QueueCapabilityError(
+        'Amazon SQS long polling must be a whole number from 0 to 20.',
+      );
+    }
+    this.#waitTimeSeconds = waitTimeSeconds;
   }
 
   async enqueue<TPayload>(input: {
@@ -344,11 +350,11 @@ export class SqsJobQueue implements JobQueue {
 
   #leased(input: {readonly deliveryId: string; readonly leaseToken: string}): ActiveLease {
     const lease = this.#activeLeases.get(input.deliveryId);
-    if (
-      !lease ||
-      lease.receiptHandle !== input.leaseToken ||
-      lease.expiresAt.getTime() <= this.#now().getTime()
-    ) {
+    if (lease && lease.expiresAt.getTime() <= this.#now().getTime()) {
+      this.#activeLeases.delete(input.deliveryId);
+      throw new StaleDeliveryError(input.deliveryId);
+    }
+    if (!lease || lease.receiptHandle !== input.leaseToken) {
       throw new StaleDeliveryError(input.deliveryId);
     }
     return lease;
@@ -395,8 +401,8 @@ function secondsCeiling(milliseconds: number): number {
 }
 
 function visibilitySeconds(milliseconds: number, allowZero = false): number {
-  if (milliseconds < 0) {
-    throw new QueueCapabilityError('Amazon SQS visibility cannot be negative.');
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) {
+    throw new QueueCapabilityError('Amazon SQS visibility must be finite and non-negative.');
   }
   const seconds = secondsCeiling(milliseconds);
   if ((!allowZero && seconds === 0) || seconds * 1_000 > MVP_JOB_QUEUE_POLICY.maximumVisibilityMs) {
