@@ -34,6 +34,8 @@ test('all eight package shapes are inert, minimal, and depcruise-ready', async (
     assert.equal(packageJson.scripts.depcruise, 'shipfox-depcruise');
     assert.equal(packageJson.devDependencies['@shipfox/depcruise'], '1.0.1');
     assert.ok((await stat(path.join(root, shape, 'src/index.ts'))).isFile());
+    const tsconfig = JSON.parse(await readFile(path.join(root, shape, 'tsconfig.json'), 'utf8'));
+    assert.deepEqual(tsconfig.files, [], `${shape} must use a solution-style root tsconfig`);
     assert.deepEqual(
       (await readdir(path.join(root, shape), {withFileTypes: true}))
         .filter((entry) => entry.isDirectory())
@@ -58,5 +60,5 @@ test('the universal DTO template does not inject Node or browser globals', async
   const tsconfig = JSON.parse(await readFile(path.join(root, 'dto/tsconfig.build.json'), 'utf8'));
   assert.equal(tsconfig.extends, '@shipfox/ts-config');
   assert.deepEqual(tsconfig.compilerOptions.lib, ['ES2022']);
-  assert.equal(tsconfig.compilerOptions.types, undefined);
+  assert.deepEqual(tsconfig.compilerOptions.types, []);
 });

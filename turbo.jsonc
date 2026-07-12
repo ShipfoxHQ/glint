@@ -2,7 +2,6 @@
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": [
     ".dependency-cruiser.cjs",
-    "architecture/dependency-policy.cjs",
     "biome.json",
     "mise.lock",
     "mise.toml",

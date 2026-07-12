@@ -15,4 +15,4 @@ Copy exactly one shape when real owned behavior is ready to land, then replace `
 
 Library shapes intentionally export only `src/index.ts` in development and `dist/index.*` by default. Add an explicit subpath export only for a designed public consumer; never export `core`, `db`, `presentation`, source paths, or test helpers. Every generated package keeps `depcruise` package-local so Turbo sees the real workspace DAG.
 
-Each shape includes `tsconfig.json` and `tsconfig.build.json`. Browser packages use the React preset; Node packages use the Node preset. Change an app's preset and `glint.environment` together when creating the web composition root.
+Each shape includes `tsconfig.json` and `tsconfig.build.json`. Browser packages use the React preset, Node packages use the Node preset, and universal DTO packages use the base configuration with no ambient types. Change an app's preset and `glint.environment` together when creating the web composition root.
