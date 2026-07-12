@@ -82,15 +82,18 @@ describe('redaction', () => {
     expect(serialized).not.toContain('signed-credentials');
     expect(serialized).not.toContain('plain-token');
     expect(serialized).not.toContain('plain-signature');
+    expect(serialized).toContain('[REDACTED]');
   });
 
-  it('redacts configured secrets inside URL objects', () => {
+  it('redacts credentials and configured secrets inside non-HTTP URL objects', () => {
     const secret = 'configured-secret';
     const redactor = createRedactor({secrets: [secret]});
     const output = redactor.redact(
-      new URL(`https://example.com/${secret}?opaque=${secret}#state=${secret}`),
+      new URL(`postgres://db-user:db-password@example.com/${secret}?opaque=${secret}`),
     );
 
+    expect(output).not.toContain('db-user');
+    expect(output).not.toContain('db-password');
     expect(output).not.toContain(secret);
   });
 

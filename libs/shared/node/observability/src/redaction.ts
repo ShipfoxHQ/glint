@@ -82,7 +82,7 @@ export function createRedactor(options: {readonly secrets?: readonly string[]} =
   function visit(value: unknown, seen: WeakSet<object>): unknown {
     if (typeof value === 'string') return redactString(value, secrets);
     if (value === null || typeof value !== 'object') return value;
-    if (value instanceof URL) return redactString(value.toString(), secrets);
+    if (value instanceof URL) return redactString(redactUrl(value.toString()), secrets);
     if (value instanceof Date) return value.toISOString();
     if (seen.has(value)) return '[Circular]';
     seen.add(value);
