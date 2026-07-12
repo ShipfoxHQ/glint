@@ -3,6 +3,10 @@
 Glint is Shipfox's visual regression platform. The repository architecture and delivery plan
 live in [`docs/system-design.md`](docs/system-design.md).
 
+The approved MVP providers, runtime, local substitutes, cost envelope, and safety limits are in
+[`docs/decisions`](docs/decisions/README.md) and
+[`docs/deployment/reference-topology.md`](docs/deployment/reference-topology.md).
+
 ## Local bootstrap
 
 Install [mise](https://mise.jdx.dev/), then prepare and verify a fresh checkout:

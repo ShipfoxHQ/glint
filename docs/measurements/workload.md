@@ -98,8 +98,9 @@ pixel values cover all 178 new screenshots.
 
 The mean stored size was 40,897 bytes. The expected cost model uses that value.
 The stress model uses P95 instead. Neither value is a decoder safety limit. The
-test set also has a 1,200×4,000 long page. It has a 4,096×4,096 image that is
-small on disk. Worker tests can use them to measure memory and error isolation.
+test set also has a 1,200×4,000 long page plus 4,096×4,096 and 1,024×16,384
+images that are small on disk. Worker tests use them to measure memory, maximum
+height, and error isolation at the 16,777,216-pixel boundary.
 
 ## Monthly scenarios and burst envelope
 
@@ -139,7 +140,7 @@ review can apply current local prices without repeating the traffic research.
 
 Expected model:
 
-| Scenario | New source writes | Changed diffs/masks | Live source+mask GB | Object operations | Queue jobs / API ops | Worker hours |
+| Scenario | New source writes | Changed diffs/masks | Live source+mask GB | Object operations | Queue jobs / SQS operations | Worker hours |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 500k | 25,000 | 2,500 | 1.39 | 57,500 | 27,500 / 82,500 | 2.26 |
 | 750k | 37,500 | 3,750 | 2.08 | 86,250 | 41,250 / 123,750 | 3.39 |
@@ -147,7 +148,7 @@ Expected model:
 
 Conservative model:
 
-| Scenario | New source writes | Changed diffs/masks | Live source+mask GB | Object operations | Queue jobs / API ops | Worker hours |
+| Scenario | New source writes | Changed diffs/masks | Live source+mask GB | Object operations | Queue jobs / SQS operations | Worker hours |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 500k | 75,000 | 10,000 | 8.51 | 180,000 | 85,000 / 255,000 | 29.17 |
 | 750k | 112,500 | 15,000 | 12.77 | 270,000 | 127,500 / 382,500 | 43.75 |
@@ -160,7 +161,7 @@ Calculations:
 - Live GB equals `(new files + masks) × bytes × 37/30 ÷ 1e9`.
 - Storage calls include writes and file-check reads. Each diff adds two reads
   and one mask write. The short formula is `2 × files + 3 × diffs`.
-- Queue jobs include file checks and diffs. Queue API calls assume one send,
+- Queue jobs include file checks and diffs. SQS operations assume one send,
   receive, and delete for each successful job. Retries are extra.
 - Worker time includes both file checks and diffs.
 

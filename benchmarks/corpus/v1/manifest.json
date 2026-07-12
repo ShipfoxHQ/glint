@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "corpusVersion": "1.0.0",
+  "corpusVersion": "1.1.0",
   "createdAt": "2026-07-11",
   "license": "MIT",
   "provenance": {
@@ -78,6 +78,14 @@
       "tags": ["limit", "high-compression-ratio", "decoded-pixels"],
       "inputs": [
         {"role": "candidate", "path": "limits/large-solid.png", "sha256": "b2e07fcf29bd711820120185bc0ce15a45352ce765eafff1d2d5cbe011328b3b", "bytes": 58872, "width": 4096, "height": 4096, "decodedPixels": 16777216, "alpha": false}
+      ],
+      "expected": {"classification": "valid-or-limit-rejection", "engineInvocation": false}
+    },
+    {
+      "id": "tall-solid-height-boundary",
+      "tags": ["limit", "long-page", "decoded-pixels", "maximum-height"],
+      "inputs": [
+        {"role": "candidate", "path": "limits/tall-solid.png", "sha256": "53c26532af55390ac118a9ff4d4203f1f60717df783d85bfac977227bc4889ee", "bytes": 82615, "width": 1024, "height": 16384, "decodedPixels": 16777216, "alpha": false}
       ],
       "expected": {"classification": "valid-or-limit-rejection", "engineInvocation": false}
     },
