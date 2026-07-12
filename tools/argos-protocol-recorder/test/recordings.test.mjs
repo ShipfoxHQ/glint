@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {recordAll} from '../src/run-recordings.mjs';
+import {recordAll, replayRecordings} from '../src/run-recordings.mjs';
 
 const packageRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const recordingsRoot = join(packageRoot, 'recordings/v1');
@@ -35,9 +35,15 @@ test('recordings cover the complete GLI-3 producer matrix', async () => {
   assert.equal((await recording('storybook-vitest-plugin')).producer.version, '6.0.7');
 });
 
+test('pinned CLI, Playwright, and Storybook producers replay the golden contract', async () => {
+  assert.deepEqual(await replayRecordings(), recordingNames.map((name) => `${name}.json`).sort());
+});
+
 test('recordings contain no bearer token, live signed URL, or screenshot bytes', async () => {
   const files = await readdir(recordingsRoot);
-  const content = (await Promise.all(files.map((file) => readFile(join(recordingsRoot, file), 'utf8')))).join('\n');
+  const content = (
+    await Promise.all(files.map((file) => readFile(join(recordingsRoot, file), 'utf8')))
+  ).join('\n');
   assert.doesNotMatch(content, /0123456789012345678901234567890123456789/);
   assert.doesNotMatch(content, /http:\/\/127\.0\.0\.1:\d+/);
   assert.doesNotMatch(content, /\/Users\//);
@@ -65,17 +71,26 @@ test('chunked, zero-screenshot, and upload-failure recordings preserve edge beha
       .screenshots,
     [],
   );
-  assert.equal(empty.exchanges.some((exchange) => exchange.request.method === 'PUT'), true);
+  assert.equal(
+    empty.exchanges.some((exchange) => exchange.request.method === 'PUT'),
+    true,
+  );
 
   const failed = await recording('cli-upload-failure');
   assert.equal(failed.expectedFailure, true);
   assert.equal(failed.exchanges.at(-1).response.status, 503);
-  assert.equal(failed.exchanges.some((exchange) => exchange.request.method === 'PUT'), false);
+  assert.equal(
+    failed.exchanges.some((exchange) => exchange.request.method === 'PUT'),
+    false,
+  );
 });
 
 test('skip is POST /v2/builds with skipped true and no other API route', async () => {
   const value = await recording('cli-skipped');
-  assert.deepEqual(value.exchanges.map((exchange) => exchange.request.path), ['/v2/builds']);
+  assert.deepEqual(
+    value.exchanges.map((exchange) => exchange.request.path),
+    ['/v2/builds'],
+  );
   assert.equal(value.exchanges[0].request.body.skipped, true);
   assert.deepEqual(value.exchanges[0].request.body.screenshots, []);
 });
@@ -101,7 +116,10 @@ test('API retries reuse request id and increment the attempt header', async () =
 test('parallel shards update both indices then use the manual finalize route', async () => {
   const value = await recording('cli-parallel-manual-finalize');
   const updates = value.exchanges.filter((exchange) => exchange.request.method === 'PUT');
-  assert.deepEqual(updates.map((exchange) => exchange.request.body.parallelIndex), [1, 2]);
+  assert.deepEqual(
+    updates.map((exchange) => exchange.request.body.parallelIndex),
+    [1, 2],
+  );
   assert.equal(value.exchanges.at(-1).request.path, '/v2/builds/finalize');
 });
 

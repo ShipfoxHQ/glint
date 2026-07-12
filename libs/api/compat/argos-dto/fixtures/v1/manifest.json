@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "sourceRecordingVersion": 1,
+  "producerVersions": {
+    "@argos-ci/cli": "5.0.5",
+    "@argos-ci/playwright": "7.0.6",
+    "@argos-ci/storybook": "6.0.7",
+    "@argos-ci/core": "6.1.1",
+    "@argos-ci/api-client": "0.22.0"
+  },
+  "scenarios": {
+    "cli-no-baseline": ["project", "create", "signed-upload", "update"],
+    "cli-unchanged": ["project", "create", "update"],
+    "cli-changed": ["project", "create", "signed-upload", "update"],
+    "cli-zero-screenshot": ["project", "create", "update"],
+    "cli-skipped": ["create"],
+    "cli-chunked-metadata": ["project", "create", "12-signed-uploads", "update"],
+    "cli-parallel-manual-finalize": ["2-parallel-shards", "finalize"],
+    "cli-api-retry": ["project-500", "project-retry", "create", "update"],
+    "cli-upload-failure": ["project", "create", "signed-upload-503"],
+    "cli-invalid-token": [],
+    "cli-minimal-response-fields": ["project", "create", "update"],
+    "playwright-reporter": ["project", "create", "signed-upload", "update-with-test-report"],
+    "storybook-vitest-plugin": ["project", "create", "signed-upload", "update"]
+  }
+}

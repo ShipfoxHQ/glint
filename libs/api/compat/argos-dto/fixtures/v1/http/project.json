@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v2/project"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "defaultBaseBranch": "main",
+      "hasRemoteContentAccess": true
+    }
+  },
+  "minimalResponse": {
+    "status": 200,
+    "body": {
+      "hasRemoteContentAccess": true
+    }
+  }
+}

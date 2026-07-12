@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v2/builds/finalize",
+    "body": {
+      "parallelNonce": "recording-parallel-nonce"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "builds": [
+        {
+          "id": "build-parallel-fixture",
+          "status": "pending",
+          "url": "https://glint.invalid/builds/build-parallel-fixture"
+        }
+      ]
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {mkdtemp, mkdir, readFile, rename, rm, writeFile} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile, readdir, rename, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {basename, dirname, join, resolve} from 'node:path';
 import {deflateSync} from 'node:zlib';
@@ -68,7 +68,8 @@ function packageDirectory(packageName) {
 }
 
 async function packageVersion(packageName) {
-  return JSON.parse(await readFile(join(packageDirectory(packageName), 'package.json'), 'utf8')).version;
+  return JSON.parse(await readFile(join(packageDirectory(packageName), 'package.json'), 'utf8'))
+    .version;
 }
 
 function scrubOutput(output, baseUrl, temporaryRoot) {
@@ -243,8 +244,7 @@ const scenarioDefinitions = [
     producer: '@argos-ci/cli',
     outcome: 'skipped',
     uploads: 'none',
-    run: (context) =>
-      runCli(['skip', '--build-name', context.scenario.name], context),
+    run: (context) => runCli(['skip', '--build-name', context.scenario.name], context),
   },
   {
     name: 'cli-chunked-metadata',
@@ -274,10 +274,7 @@ const scenarioDefinitions = [
       ];
       await runCli(['upload', shardOne, ...common, '--parallel-index', '1'], context);
       await runCli(['upload', shardTwo, ...common, '--parallel-index', '2'], context);
-      return runCli(
-        ['finalize', '--parallel-nonce', 'recording-parallel-nonce'],
-        context,
-      );
+      return runCli(['finalize', '--parallel-nonce', 'recording-parallel-nonce'], context);
     },
   },
   {
@@ -304,12 +301,9 @@ const scenarioDefinitions = [
     run: async (context) => {
       const screenshots = join(context.temporaryRoot, 'screenshots');
       await makeScreenshots(screenshots, 1);
-      return runCli(
-        ['upload', screenshots, '--build-name', context.scenario.name],
-        context,
-        true,
-        {ARGOS_TOKEN: 'too-short'},
-      );
+      return runCli(['upload', screenshots, '--build-name', context.scenario.name], context, true, {
+        ARGOS_TOKEN: 'too-short',
+      });
     },
   },
   {
@@ -398,6 +392,29 @@ export async function recordAll(
     return generatedNames.map((name) => join(outputDirectory, name));
   } finally {
     if (!promoted) await rm(stagingDirectory, {recursive: true, force: true});
+  }
+}
+
+export async function replayRecordings(expectedDirectory = defaultOutputDirectory) {
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'glint-argos-replay-'));
+  const actualDirectory = join(temporaryRoot, 'recordings');
+  try {
+    await recordAll(actualDirectory);
+    const expectedNames = (await readdir(expectedDirectory)).sort();
+    const actualNames = (await readdir(actualDirectory)).sort();
+    if (JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) {
+      throw new Error(
+        `Replay fixture set differs: expected ${expectedNames.join(', ')}, got ${actualNames.join(', ')}`,
+      );
+    }
+    for (const name of expectedNames) {
+      const expected = await readFile(join(expectedDirectory, name), 'utf8');
+      const actual = await readFile(join(actualDirectory, name), 'utf8');
+      if (actual !== expected) throw new Error(`Replay differs from golden recording: ${name}`);
+    }
+    return actualNames;
+  } finally {
+    await rm(temporaryRoot, {recursive: true, force: true});
   }
 }
 

@@ -1,0 +1,56 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v2/builds",
+    "headers": {
+      "authorization": "Bearer <40-character-token>"
+    },
+    "body": {
+      "commit": "1111111111111111111111111111111111111111",
+      "branch": "recording-branch",
+      "name": "fixture-build",
+      "mode": "ci",
+      "parallel": false,
+      "parallelNonce": null,
+      "screenshots": [
+        {
+          "key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contentType": "image/png"
+        }
+      ],
+      "pwTraceKeys": [],
+      "prNumber": null,
+      "prHeadCommit": null,
+      "referenceBranch": null,
+      "referenceCommit": null,
+      "argosSdk": "@argos-ci/core@6.1.1",
+      "ciProvider": "git",
+      "runId": null,
+      "runAttempt": null,
+      "subset": false,
+      "ignoredFutureField": "safe-to-ignore"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "build": {
+        "id": "build-fixture",
+        "status": "pending",
+        "url": "https://glint.invalid/builds/build-fixture"
+      },
+      "screenshots": [
+        {
+          "key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "postUrl": "https://uploads.invalid/fixture",
+          "fields": {
+            "key": "objects/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "policy": "<opaque-signed-value>",
+            "Content-Type": "image/png"
+          }
+        }
+      ],
+      "pwTraces": []
+    }
+  }
+}

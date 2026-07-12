@@ -1,0 +1,284 @@
+openapi: 3.1.0
+info:
+  title: Glint Argos producer compatibility API
+  version: 1.0.0
+  description: Minimal /v2 surface recorded from the pinned Shipfox Argos producers.
+servers:
+  - url: https://glint.invalid
+security:
+  - bearerAuth: []
+paths:
+  /v2/project:
+    get:
+      operationId: getArgosProject
+      responses:
+        "200":
+          description: Producer project configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "401":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v2/builds:
+    post:
+      operationId: createArgosBuild
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/CreateBuild"
+                - $ref: "#/components/schemas/CreateSkippedBuild"
+      responses:
+        "201":
+          description: Build created, with signed multipart uploads for missing objects.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/CreateBuildResponse"
+                  - $ref: "#/components/schemas/BuildResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v2/builds/{buildId}:
+    put:
+      operationId: updateArgosBuild
+      parameters:
+        - name: buildId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBuild"
+      responses:
+        "200":
+          description: Updated build.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v2/builds/finalize:
+    post:
+      operationId: finalizeArgosBuilds
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              required: [parallelNonce]
+              properties:
+                parallelNonce:
+                  type: string
+      responses:
+        "200":
+          description: Finalized parallel builds.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                required: [builds]
+                properties:
+                  builds:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Build"
+        "401":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Exactly 40 non-whitespace token characters.
+  responses:
+    Error:
+      description: Exact compatibility error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Project:
+      type: object
+      additionalProperties: true
+      required: [hasRemoteContentAccess]
+      properties:
+        defaultBaseBranch:
+          type: string
+        hasRemoteContentAccess:
+          const: true
+    ScreenshotReference:
+      type: object
+      additionalProperties: true
+      required: [key, contentType]
+      properties:
+        key:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        contentType:
+          type: string
+    CreateBuildCommon:
+      type: object
+      additionalProperties: true
+      required:
+        - commit
+        - branch
+        - name
+        - mode
+        - prNumber
+        - prHeadCommit
+        - referenceBranch
+        - referenceCommit
+        - argosSdk
+        - ciProvider
+        - runId
+        - runAttempt
+        - screenshots
+        - pwTraceKeys
+      properties:
+        commit: {type: string}
+        branch: {type: string}
+        name: {type: [string, "null"]}
+        mode: {type: [string, "null"]}
+        prNumber: {type: [integer, "null"]}
+        prHeadCommit: {type: [string, "null"]}
+        referenceBranch: {type: [string, "null"]}
+        referenceCommit: {type: [string, "null"]}
+        argosSdk: {type: string}
+        ciProvider: {type: [string, "null"]}
+        runId: {type: [string, "null"]}
+        runAttempt: {type: [integer, "null"]}
+        screenshots:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScreenshotReference"
+        pwTraceKeys:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-f0-9]{64}$"
+    CreateBuild:
+      allOf:
+        - $ref: "#/components/schemas/CreateBuildCommon"
+        - type: object
+          additionalProperties: true
+          required: [parallel, parallelNonce]
+          properties:
+            parallel: {type: boolean}
+            parallelNonce: {type: [string, "null"]}
+    CreateSkippedBuild:
+      allOf:
+        - $ref: "#/components/schemas/CreateBuildCommon"
+        - type: object
+          additionalProperties: true
+          required: [skipped]
+          properties:
+            skipped: {const: true}
+    Screenshot:
+      type: object
+      additionalProperties: true
+      required: [key, name, metadata, pwTraceKey, threshold, baseName, parentName, contentType]
+      properties:
+        key:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        name: {type: string}
+        metadata: {}
+        pwTraceKey: {type: [string, "null"]}
+        threshold: {type: [number, "null"]}
+        baseName: {type: [string, "null"]}
+        parentName: {type: [string, "null"]}
+        contentType: {type: string}
+    UpdateBuild:
+      type: object
+      additionalProperties: true
+      required: [screenshots, parallel, parallelTotal, parallelIndex]
+      properties:
+        screenshots:
+          type: array
+          items:
+            $ref: "#/components/schemas/Screenshot"
+        parallel: {type: boolean}
+        parallelTotal: {type: [integer, "null"]}
+        parallelIndex: {type: [integer, "null"]}
+    Build:
+      type: object
+      additionalProperties: true
+      properties:
+        id: {type: string}
+        status: {type: string}
+        url: {type: string}
+    SignedUpload:
+      type: object
+      additionalProperties: true
+      required: [key, postUrl, fields]
+      properties:
+        key:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        postUrl:
+          type: string
+          format: uri
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+          description: Opaque fields copied verbatim into multipart/form-data before file.
+    CreateBuildResponse:
+      type: object
+      additionalProperties: true
+      required: [build, screenshots]
+      properties:
+        build:
+          $ref: "#/components/schemas/Build"
+        screenshots:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignedUpload"
+        pwTraces:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignedUpload"
+    BuildResponse:
+      type: object
+      additionalProperties: true
+      required: [build]
+      properties:
+        build:
+          $ref: "#/components/schemas/Build"
+    Error:
+      type: object
+      additionalProperties: true
+      required: [error]
+      properties:
+        error: {type: string}
+        details:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            required: [message]
+            properties:
+              message: {type: string}

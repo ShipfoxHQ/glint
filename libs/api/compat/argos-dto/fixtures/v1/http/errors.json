@@ -1,0 +1,22 @@
+{
+  "invalidToken": {
+    "status": 401,
+    "body": {
+      "error": "invalid bearer token",
+      "details": [{ "message": "expected a 40-character token" }]
+    }
+  },
+  "retryable": {
+    "status": 500,
+    "body": {
+      "error": "temporary failure",
+      "details": [{ "message": "retry this request" }]
+    }
+  },
+  "notFound": {
+    "status": 404,
+    "body": {
+      "error": "build not found"
+    }
+  }
+}
