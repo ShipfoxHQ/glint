@@ -1,5 +1,5 @@
 import {describe, expect, it} from '@shipfox/vitest/vi';
-import type {BlobStore} from './types.js';
+import type {BlobStore, SignedUploadInput} from './types.js';
 import {MVP_BLOB_SIGNING_POLICY, parseSha256Hex, validateSignedReadInput} from './types.js';
 
 const SHA256_123 = parseSha256Hex(
@@ -124,6 +124,17 @@ export function blobStoreContractTests(
       await expectConstraint(() =>
         store.put({key: '../escape', body: Uint8Array.from([1]), contentType: 'image/png'}),
       );
+      for (const checksumSha256 of ['A'.repeat(64), 'a'.repeat(63), 'not-a-checksum']) {
+        await expectConstraint(() =>
+          store.signUpload({
+            key: 'tenant/source/hash',
+            contentType: MVP_BLOB_SIGNING_POLICY.contentType,
+            maximumBytes: MVP_BLOB_SIGNING_POLICY.maximumBytes,
+            expiresAt: validExpiry,
+            checksumSha256,
+          } as unknown as SignedUploadInput),
+        );
+      }
       for (const key of [
         '/absolute',
         'back\\slash',

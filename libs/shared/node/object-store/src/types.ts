@@ -1,10 +1,11 @@
 declare const sha256HexBrand: unique symbol;
+const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 
 /** A SHA-256 digest serialized as exactly 64 lowercase hexadecimal characters. */
 export type Sha256Hex = string & {readonly [sha256HexBrand]: true};
 
 export function parseSha256Hex(value: string): Sha256Hex {
-  if (!/^[a-f0-9]{64}$/.test(value)) throw new InvalidSha256HexError(value);
+  if (!SHA256_HEX_PATTERN.test(value)) throw new InvalidSha256HexError(value);
   return value as Sha256Hex;
 }
 
@@ -98,7 +99,7 @@ export function validateBlobKey(key: string): void {
 
 export function validateSignedUploadInput(input: SignedUploadInput, now: Date): void {
   validateBlobKey(input.key);
-  if (!input.checksumSha256) {
+  if (typeof input.checksumSha256 !== 'string' || !SHA256_HEX_PATTERN.test(input.checksumSha256)) {
     throw new BlobConstraintError(
       'checksum',
       'Signed uploads require a SHA-256 checksum to preserve content immutability',

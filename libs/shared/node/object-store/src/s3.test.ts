@@ -21,6 +21,7 @@ interface MockS3Options {
   readonly omitHeadMetadata?: boolean;
   readonly headFailureStatus?: number;
   readonly healthFailureStatus?: number;
+  readonly putConflictCount?: number;
 }
 
 interface MockObject {
@@ -38,6 +39,7 @@ const s3Error = (status: number) =>
 
 const createStore = (options: MockS3Options = {}) => {
   const objects = new Map<string, MockObject>();
+  let putConflictsRemaining = options.putConflictCount ?? 0;
   const client = new S3Client({
     region: 'eu-central-1',
     endpoint: 'https://s3.invalid',
@@ -53,6 +55,10 @@ const createStore = (options: MockS3Options = {}) => {
         const key = command.input.Key;
         if (!key || !(command.input.Body instanceof Uint8Array)) {
           throw new Error('Unexpected mock PutObject input');
+        }
+        if (putConflictsRemaining > 0) {
+          putConflictsRemaining -= 1;
+          throw s3Error(409);
         }
         if (objects.has(key) && command.input.IfNoneMatch === '*') throw s3Error(412);
         objects.set(key, {
@@ -192,6 +198,23 @@ describe('S3BlobStore signed upload compatibility', () => {
     });
     await expect(createStore({healthFailureStatus: 503}).health()).resolves.toMatchObject({
       status: 'unavailable',
+    });
+  });
+
+  it('retries conditional write conflicts and bounds repeated failures', async () => {
+    const input = {
+      key: 'objects/conflict',
+      body: Uint8Array.from([1]),
+      contentType: 'image/png',
+      checksumSha256: parseSha256Hex(
+        '4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a',
+      ),
+    };
+    await expect(createStore({putConflictCount: 1}).put(input)).resolves.toEqual({
+      status: 'created',
+    });
+    await expect(createStore({putConflictCount: 3}).put(input)).rejects.toMatchObject({
+      $metadata: {httpStatusCode: 409},
     });
   });
 });

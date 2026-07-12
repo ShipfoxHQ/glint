@@ -40,6 +40,7 @@ export interface S3BlobStoreConfig {
 
 const CHECKSUM_METADATA_KEY = 'glint-checksum-sha256';
 const CREATED_AT_METADATA_KEY = 'glint-created-at';
+const MAXIMUM_CONDITIONAL_WRITE_ATTEMPTS = 3;
 
 const checksum = (body: Uint8Array) =>
   parseSha256Hex(createHash('sha256').update(body).digest('hex'));
@@ -87,13 +88,23 @@ export class S3BlobStore implements BlobStore {
       });
   }
 
-  async put(input: PutBlobInput): Promise<{readonly status: 'created' | 'already-exists'}> {
-    validateBlobKey(input.key);
-    const actual = checksum(input.body);
-    if (input.checksumSha256 && input.checksumSha256 !== actual) {
-      throw new BlobChecksumMismatchError(input.checksumSha256, actual);
-    }
-    const createdAt = this.#now();
+  put(input: PutBlobInput): Promise<{readonly status: 'created' | 'already-exists'}> {
+    return Promise.resolve().then(() => {
+      validateBlobKey(input.key);
+      const actual = checksum(input.body);
+      if (input.checksumSha256 && input.checksumSha256 !== actual) {
+        throw new BlobChecksumMismatchError(input.checksumSha256, actual);
+      }
+      return this.#putObject(input, actual, this.#now(), MAXIMUM_CONDITIONAL_WRITE_ATTEMPTS);
+    });
+  }
+
+  async #putObject(
+    input: PutBlobInput,
+    actual: ReturnType<typeof checksum>,
+    createdAt: Date,
+    attemptsRemaining: number,
+  ): Promise<{readonly status: 'created' | 'already-exists'}> {
     try {
       await this.#client.send(
         new PutObjectCommand({
@@ -113,6 +124,9 @@ export class S3BlobStore implements BlobStore {
       return {status: 'created'};
     } catch (error) {
       if (statusCodeOf(error) === 412) return {status: 'already-exists'};
+      if (statusCodeOf(error) === 409 && attemptsRemaining > 1) {
+        return this.#putObject(input, actual, createdAt, attemptsRemaining - 1);
+      }
       throw error;
     }
   }

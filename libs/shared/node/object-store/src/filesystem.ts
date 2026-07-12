@@ -1,6 +1,7 @@
 import {createHash, createHmac, randomBytes, randomUUID, timingSafeEqual} from 'node:crypto';
 import {constants} from 'node:fs';
-import {access, link, mkdir, readFile, unlink, writeFile} from 'node:fs/promises';
+import type {FileHandle} from 'node:fs/promises';
+import {access, link, mkdir, open, readFile, unlink, writeFile} from 'node:fs/promises';
 import {dirname, join} from 'node:path';
 import type {
   BlobMetadata,
@@ -43,6 +44,7 @@ export interface FilesystemBlobStoreOptions {
 }
 
 const HEADER_LENGTH_BYTES = 4;
+const MAXIMUM_ENVELOPE_HEADER_BYTES = 64 * 1_024;
 const MAXIMUM_MULTIPART_OVERHEAD_BYTES = 64 * 1_024;
 const LOCAL_UPLOAD_FIELDS = {
   expiresAt: 'x-glint-expires-at',
@@ -75,10 +77,12 @@ export class FilesystemBlobStore implements BlobStore {
     );
     this.#uploadUrl = new URL('upload', baseUrl);
     this.#readUrl = new URL('read', baseUrl);
-    this.#signingSecret =
+    const signingSecret =
       typeof options.signingSecret === 'string'
         ? Buffer.from(options.signingSecret)
         : Uint8Array.from(options.signingSecret ?? randomBytes(32));
+    if (signingSecret.byteLength === 0) throw new Error('signingSecret must not be empty');
+    this.#signingSecret = signingSecret;
     this.#now = options.now ?? (() => new Date());
   }
 
@@ -130,8 +134,8 @@ export class FilesystemBlobStore implements BlobStore {
     return (await this.#load(key))?.body;
   }
 
-  async head(key: string): Promise<BlobMetadata | undefined> {
-    return (await this.#load(key))?.metadata;
+  head(key: string): Promise<BlobMetadata | undefined> {
+    return this.#loadMetadata(key);
   }
 
   async delete(key: string): Promise<void> {
@@ -218,11 +222,13 @@ export class FilesystemBlobStore implements BlobStore {
 
   async #handleSignedUpload(request: Request): Promise<Response> {
     const declaredContentLength = request.headers.get('content-length');
+    if (declaredContentLength === null) {
+      return errorResponse(411, 'blob_content_length_required');
+    }
     if (
-      declaredContentLength !== null &&
-      (!/^\d+$/.test(declaredContentLength) ||
-        Number(declaredContentLength) >
-          MVP_BLOB_SIGNING_POLICY.maximumBytes + MAXIMUM_MULTIPART_OVERHEAD_BYTES)
+      !/^\d+$/.test(declaredContentLength) ||
+      Number(declaredContentLength) >
+        MVP_BLOB_SIGNING_POLICY.maximumBytes + MAXIMUM_MULTIPART_OVERHEAD_BYTES
     ) {
       return errorResponse(413, 'blob_request_too_large');
     }
@@ -312,16 +318,49 @@ export class FilesystemBlobStore implements BlobStore {
     if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= this.#now().getTime()) {
       return errorResponse(403, 'expired_blob_signature');
     }
-    const blob = await this.#load(key);
-    if (!blob) return errorResponse(404, 'blob_not_found');
-    return new Response(blob.body, {
-      status: 200,
-      headers: {
-        'content-type': blob.metadata.contentType,
-        'content-length': String(blob.metadata.size),
-        etag: `"${blob.metadata.checksumSha256}"`,
-      },
-    });
+    try {
+      const blob = await this.#load(key);
+      if (!blob) return errorResponse(404, 'blob_not_found');
+      return new Response(blob.body, {
+        status: 200,
+        headers: {
+          'content-type': blob.metadata.contentType,
+          'content-length': String(blob.metadata.size),
+          etag: `"${blob.metadata.checksumSha256}"`,
+        },
+      });
+    } catch {
+      return errorResponse(500, 'blob_store_unavailable');
+    }
+  }
+
+  async #loadMetadata(key: string): Promise<BlobMetadata | undefined> {
+    validateBlobKey(key);
+    let handle: FileHandle;
+    try {
+      handle = await open(this.#pathFor(key), 'r');
+    } catch (error) {
+      if (isMissing(error)) return undefined;
+      throw error;
+    }
+    try {
+      const prefix = Buffer.alloc(HEADER_LENGTH_BYTES);
+      await this.#readExactly(handle, prefix, 0);
+      const headerLength = prefix.readUInt32BE(0);
+      if (headerLength > MAXIMUM_ENVELOPE_HEADER_BYTES) {
+        throw new Error('Invalid local blob envelope');
+      }
+      const headerBytes = Buffer.alloc(headerLength);
+      await this.#readExactly(handle, headerBytes, HEADER_LENGTH_BYTES);
+      const stat = await handle.stat();
+      return this.#metadataFromHeader(
+        key,
+        headerBytes,
+        stat.size - HEADER_LENGTH_BYTES - headerLength,
+      );
+    } finally {
+      await handle.close();
+    }
   }
 
   async #load(key: string): Promise<StoredBlob | undefined> {
@@ -335,24 +374,50 @@ export class FilesystemBlobStore implements BlobStore {
     }
     if (envelope.byteLength < HEADER_LENGTH_BYTES) throw new Error('Invalid local blob envelope');
     const headerLength = envelope.readUInt32BE(0);
-    const bodyOffset = HEADER_LENGTH_BYTES + headerLength;
-    if (bodyOffset > envelope.byteLength) throw new Error('Invalid local blob envelope');
-    const header = JSON.parse(
-      envelope.subarray(HEADER_LENGTH_BYTES, bodyOffset).toString('utf8'),
-    ) as StoredBlobHeader;
-    if (header.key !== key || header.size !== envelope.byteLength - bodyOffset) {
+    if (headerLength > MAXIMUM_ENVELOPE_HEADER_BYTES) {
       throw new Error('Invalid local blob envelope');
     }
+    const bodyOffset = HEADER_LENGTH_BYTES + headerLength;
+    if (bodyOffset > envelope.byteLength) throw new Error('Invalid local blob envelope');
+    const metadata = this.#metadataFromHeader(
+      key,
+      envelope.subarray(HEADER_LENGTH_BYTES, bodyOffset),
+      envelope.byteLength - bodyOffset,
+    );
     return {
       body: Uint8Array.from(envelope.subarray(bodyOffset)),
-      metadata: {
-        key,
-        contentType: header.contentType,
-        size: header.size,
-        checksumSha256: parseSha256Hex(header.checksumSha256),
-        createdAt: new Date(header.createdAt),
-      },
+      metadata,
     };
+  }
+
+  #metadataFromHeader(key: string, headerBytes: Uint8Array, bodySize: number): BlobMetadata {
+    const header = JSON.parse(Buffer.from(headerBytes).toString('utf8')) as StoredBlobHeader;
+    if (header.key !== key || header.size !== bodySize || bodySize < 0) {
+      throw new Error('Invalid local blob envelope');
+    }
+    const createdAt = new Date(header.createdAt);
+    if (!Number.isFinite(createdAt.getTime())) throw new Error('Invalid local blob envelope');
+    return {
+      key,
+      contentType: header.contentType,
+      size: header.size,
+      checksumSha256: parseSha256Hex(header.checksumSha256),
+      createdAt,
+    };
+  }
+
+  async #readExactly(handle: FileHandle, buffer: Uint8Array, position: number): Promise<void> {
+    let offset = 0;
+    while (offset < buffer.byteLength) {
+      const result = await handle.read(
+        buffer,
+        offset,
+        buffer.byteLength - offset,
+        position + offset,
+      );
+      if (result.bytesRead === 0) throw new Error('Invalid local blob envelope');
+      offset += result.bytesRead;
+    }
   }
 
   #pathFor(key: string): string {

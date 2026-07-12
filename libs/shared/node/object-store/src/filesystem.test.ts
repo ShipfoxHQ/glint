@@ -48,7 +48,13 @@ describe('FilesystemBlobStore signed operations', () => {
     form.append('file', new Blob([body], {type: 'image/png'}), 'fixture.png');
 
     await expect(
-      store.handleSignedRequest(new Request(signedUpload.url, {method: 'POST', body: form})),
+      store.handleSignedRequest(
+        new Request(signedUpload.url, {
+          method: 'POST',
+          body: form,
+          headers: {'content-length': '1'},
+        }),
+      ),
     ).resolves.toMatchObject({status: 204});
 
     const duplicateForm = new FormData();
@@ -56,7 +62,11 @@ describe('FilesystemBlobStore signed operations', () => {
       duplicateForm.append(key, value);
     duplicateForm.append('file', new Blob([body], {type: 'image/png'}), 'fixture.png');
     const duplicate = await store.handleSignedRequest(
-      new Request(signedUpload.url, {method: 'POST', body: duplicateForm}),
+      new Request(signedUpload.url, {
+        method: 'POST',
+        body: duplicateForm,
+        headers: {'content-length': '1'},
+      }),
     );
     expect({status: duplicate.status, body: await duplicate.json()}).toEqual({
       status: 409,
@@ -88,7 +98,11 @@ describe('FilesystemBlobStore signed operations', () => {
       const form = new FormData();
       for (const [key, value] of Object.entries(signedUpload.fields)) form.append(key, value);
       form.append('file', body, 'fixture.png');
-      return new Request(signedUpload.url, {method: 'POST', body: form});
+      return new Request(signedUpload.url, {
+        method: 'POST',
+        body: form,
+        headers: {'content-length': '1'},
+      });
     };
     const execute = async (body: Blob) => {
       const response = await store.handleSignedRequest(requestWith(body));
@@ -130,16 +144,14 @@ describe('FilesystemBlobStore signed operations', () => {
         '4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a',
       ),
     });
-    const request = (contentLength?: number) => {
+    const request = (contentLength: number | null = 1) => {
       const form = new FormData();
       for (const [key, value] of Object.entries(signedUpload.fields)) form.append(key, value);
       form.append('file', new Blob([Uint8Array.from([1])], {type: 'image/png'}), 'fixture.png');
       return new Request(signedUpload.url, {
         method: 'POST',
         body: form,
-        ...(contentLength === undefined
-          ? {}
-          : {headers: {'content-length': String(contentLength)}}),
+        ...(contentLength === null ? {} : {headers: {'content-length': String(contentLength)}}),
       });
     };
 
@@ -155,6 +167,11 @@ describe('FilesystemBlobStore signed operations', () => {
     expect({status: oversized.status, body: await oversized.json()}).toEqual({
       status: 413,
       body: {error: 'blob_request_too_large'},
+    });
+    const missingLength = await store.handleSignedRequest(request(null));
+    expect({status: missingLength.status, body: await missingLength.json()}).toEqual({
+      status: 411,
+      body: {error: 'blob_content_length_required'},
     });
     await expect(store.health()).resolves.toMatchObject({status: 'unavailable'});
   });
@@ -175,5 +192,32 @@ describe('FilesystemBlobStore signed operations', () => {
     });
 
     await expect(store.read(key)).rejects.toThrow('Invalid local blob envelope');
+
+    const signedRead = await store.signRead({
+      key,
+      expiresAt: new Date(NOW.getTime() + 1_000),
+    });
+    const response = await store.handleSignedRequest(new Request(signedRead.url));
+    expect({status: response.status, body: await response.json()}).toEqual({
+      status: 500,
+      body: {error: 'blob_store_unavailable'},
+    });
+  });
+
+  it('rejects explicitly empty signing secrets', async () => {
+    const rootDirectory = await mkdtemp(join(tmpdir(), 'glint-object-store-secret-'));
+    temporaryDirectories.push(rootDirectory);
+    const options = {
+      rootDirectory,
+      publicBaseUrl: 'http://object-store.local',
+      now: () => NOW,
+    };
+
+    expect(() => new FilesystemBlobStore({...options, signingSecret: ''})).toThrow(
+      'signingSecret must not be empty',
+    );
+    expect(() => new FilesystemBlobStore({...options, signingSecret: new Uint8Array()})).toThrow(
+      'signingSecret must not be empty',
+    );
   });
 });
