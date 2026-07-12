@@ -1,7 +1,7 @@
 # Glint observability
 
 `@glint/node-observability` contains the Glint-specific policy missing from the shared Shipfox
-telemetry package: redaction, fixed correlation names, and health checks.
+telemetry packages: logger wiring, fixed correlation names, and health checks.
 
 Use `@shipfox/node-opentelemetry` directly for meters, tracers, context propagation, startup, and
 shutdown. Its exported OpenTelemetry API is provider-neutral and behaves as a no-op until a
@@ -16,7 +16,7 @@ Correlation fields are `requestId`, `buildId`, `comparisonId`, `jobId`, and `acc
 `CorrelationContextStore` keeps them attached across asynchronous work so every log record can
 include them.
 
-The logging policy redacts configured secret values, sensitive field names, authorization and
-cookie headers, webhook signatures, and signed URL query strings. Applications should pass
-`collectSensitiveValues` output from every loaded configuration schema into the observability
-logger.
+The logger delegates secret, wire-form, URL, and structured-value sanitization to the published
+`@shipfox/redact` package. Applications should pass `collectSensitiveValues` output from every
+loaded configuration schema into the observability logger. Consumers that need lower-level
+redaction outside logging should import those primitives directly from `@shipfox/redact`.

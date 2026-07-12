@@ -23,8 +23,6 @@ export {
 export {
   createGlintLogger,
   createRedactingLogger,
-  createRedactor,
   type LogAttributes,
-  type Redactor,
   type StructuredLogger,
 } from './redaction.js';
