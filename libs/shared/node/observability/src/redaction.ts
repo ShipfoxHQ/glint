@@ -17,6 +17,8 @@ const sensitiveKey =
   /(?:authorization|cookie|credential|password|private[_-]?key|secret|signature|token|api[_-]?key)/i;
 const signedQueryKey =
   /^(?:googleaccessid|policy|signature|sig|x-amz-(?:algorithm|credential|date|expires|security-token|signature|signedheaders))$/i;
+const sensitiveTextPair =
+  /(\b(?:access[_-]?token|api[_-]?key|authorization|credential|password|refresh[_-]?token|secret|signature|sig|token|x-amz-signature)\b)\s*[:=]\s*[^\s,;&]+/gi;
 
 export interface Redactor {
   redact<T>(value: T): T;
@@ -46,15 +48,21 @@ function redactUrl(value: string): string {
     if (sensitiveKey.test(key)) parsed.searchParams.set(key, redacted);
   }
 
+  if (parsed.hash) {
+    parsed.hash = parsed.hash.slice(1).replace(sensitiveTextPair, `$1=${redacted}`);
+  }
+
   return parsed.toString();
 }
 
 function redactString(value: string, secrets: readonly string[]): string {
   let result = value.replace(/Bearer\s+[^\s,;]+/gi, `Bearer ${redacted}`);
+  result = result.replace(/Authorization\s*[:=]\s*[^\r\n]+/gi, `Authorization: ${redacted}`);
   result = result.replace(
     /((?:set-)?cookie|x-hub-signature(?:-256)?)\s*[:=]\s*[^\r\n]+/gi,
     `$1: ${redacted}`,
   );
+  result = result.replace(sensitiveTextPair, `$1=${redacted}`);
   result = result.replace(/https?:\/\/[^\s"'<>]+/gi, (url) => redactUrl(url));
 
   for (const secret of secrets) {
@@ -74,7 +82,7 @@ export function createRedactor(options: {readonly secrets?: readonly string[]} =
   function visit(value: unknown, seen: WeakSet<object>): unknown {
     if (typeof value === 'string') return redactString(value, secrets);
     if (value === null || typeof value !== 'object') return value;
-    if (value instanceof URL) return redactUrl(value.toString());
+    if (value instanceof URL) return redactString(redactUrl(value.toString()), secrets);
     if (value instanceof Date) return value.toISOString();
     if (seen.has(value)) return '[Circular]';
     seen.add(value);

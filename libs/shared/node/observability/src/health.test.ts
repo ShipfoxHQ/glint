@@ -43,6 +43,30 @@ describe('HealthRegistry', () => {
     );
   });
 
+  it('rejects empty not-live reasons', () => {
+    const health = new HealthRegistry();
+
+    expect(() => health.markNotLive('  ')).toThrow('A not-live reason is required.');
+    expect(health.liveness().status).toBe('live');
+  });
+
+  it('does not let a stale disposer unregister a newer check with the same name', async () => {
+    const health = new HealthRegistry();
+    const check = {name: 'database', check: () => undefined};
+    const unregisterOld = health.registerReadinessCheck(check);
+    unregisterOld();
+    health.registerReadinessCheck(check);
+
+    unregisterOld();
+
+    await expect(health.readiness()).resolves.toEqual(
+      expect.objectContaining({
+        checks: [expect.objectContaining({name: 'database', status: 'passed'})],
+        status: 'ready',
+      }),
+    );
+  });
+
   it('rejects duplicate readiness names', () => {
     const health = new HealthRegistry();
     health.registerReadinessCheck({name: 'database', check: () => undefined});
