@@ -96,7 +96,7 @@ const createDependencyCruiserConfig = ({
       comment:
         'Workspace packages consume another package root, never its source or dist files directly.',
       severity: 'error',
-      from: {},
+      from: {path: '^(?:src|test)(?:/|$)'},
       to: {
         path: [...CROSS_PACKAGE_SOURCE_PATHS, '^@glint/[^/]+/(?:src|dist)(?:/|$)'],
         pathNot: [...PUBLIC_INDEX, NODE_MODULES_PATH],
@@ -156,7 +156,10 @@ const createDependencyCruiserConfig = ({
           "Features consume another feature's package root, never its db, presentation, or source internals.",
         severity: 'error',
         from: {path: '^(?:src|test)(?:/|$)'},
-        to: {path: apiPaths.map((prefix) => `${prefix}.*${SOURCE_PATH}`), pathNot: PUBLIC_INDEX},
+        to: {
+          path: apiPaths.map((prefix) => `${prefix}.*${SOURCE_PATH}`),
+          pathNot: [...PUBLIC_INDEX, NODE_MODULES_PATH],
+        },
       },
     );
   }

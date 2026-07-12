@@ -1,0 +1,5 @@
+{
+  "extends": "@shipfox/ts-config/node",
+  "compilerOptions": { "noEmit": true },
+  "include": ["src/**/*.test.ts", "src/**/*.ts"]
+}

@@ -81,6 +81,28 @@ test('resolved third-party package exports are not treated as workspace deep imp
   );
 });
 
+test('a followed workspace dependency may use its own internal source files', () => {
+  assert.ok(
+    !violations(relativeDeepImportFixture, {
+      from: '../database/src/index.ts',
+      to: '../database/src/types.ts',
+    }).includes('no-cross-package-source-imports'),
+  );
+});
+
+test('feature packages may use resolved third-party test and runtime dependencies', () => {
+  const feature = dependencyEdgeFixtures.find(
+    (fixture) => fixture.expectedRule === 'feature-no-other-feature-internals',
+  );
+  assert.ok(feature, 'feature dependency fixture must exist');
+  assert.ok(
+    !violations(feature, {
+      from: 'src/contract-test-kit.ts',
+      to: '../../../node_modules/.pnpm/@shipfox+vitest@1.2.1/node_modules/@shipfox/vitest/dist/vitest-export.js',
+    }).includes('feature-no-other-feature-internals'),
+  );
+});
+
 test('DTO purity holds for packages nested deeper than one level under libs/api', () => {
   const nestedDto = {
     currentDirectory: '/workspace/libs/api/vcs/core-dto',
