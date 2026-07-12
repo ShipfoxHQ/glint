@@ -22,8 +22,9 @@ Use a private Amazon S3 Standard bucket in Frankfurt for source images and diff 
 - Let database-owned retention roots decide when current objects become eligible for deletion.
 - Use MinIO locally through the same storage interface.
 
-The executable compatibility check signs a constrained request, uploads a generated PNG, verifies
-its metadata, and deletes it without listing the bucket.
+The recorded producer fixture remains the contract input for the future S3 adapter. That adapter
+will own signed-request shape tests. The infrastructure repository will smoke-test IAM, CORS, and
+bucket policy in staging; this repository does not test Amazon S3 itself.
 
 ## Why
 

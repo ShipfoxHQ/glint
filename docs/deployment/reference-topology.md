@@ -53,8 +53,9 @@ Lambda to scale to zero. Health checks do not query the database.
 | Amazon SQS | In-process durable fake | Same job identities, leases, attempts, acknowledgement, redelivery, and dead-letter behavior |
 | Lambda worker | Lambda image through the Runtime Interface Emulator | Same Node.js and ODiff versions, handler, limits, and corpus |
 
-Local development requires no cloud credentials. Provider checks run against production services
-only in explicit staging verification workflows.
+Local development requires no cloud credentials. Application packages own provider-adapter
+contract tests. The infrastructure repository owns staging smoke checks for deployed permissions,
+CORS, and service configuration.
 
 ## Safety limits
 
@@ -112,7 +113,7 @@ After review and merge, the infrastructure workflow:
 4. updates and invokes the migration artifact through the direct Neon endpoint;
 5. publishes immutable API and worker Lambda versions;
 6. moves stable staging aliases;
-7. runs S3 compatibility, worker corpus, and API smoke checks;
+7. runs storage configuration, worker corpus, and API smoke checks;
 8. promotes the exact staged Vercel deployment; and
 9. records the deployed artifacts and versions.
 
