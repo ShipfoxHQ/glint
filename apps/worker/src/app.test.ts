@@ -33,4 +33,25 @@ describe('worker composition root', () => {
     expect(response.json()).toMatchObject({status: 'not_ready'});
     await app.close();
   });
+
+  it('starts declared worker subscribers and jobs', async () => {
+    const subscriber = vi.fn();
+    const job = vi.fn();
+    const app = await createWorkerApp({
+      database: new InMemoryDatabase(),
+      blobStore: new InMemoryBlobStore(),
+      queue: new InMemoryJobQueue(),
+      odiffReady: vi.fn(),
+      modules: [
+        {
+          name: 'fixture',
+          subscribers: [{name: 'fixture.subscriber', value: subscriber}],
+          jobs: [{name: 'fixture.job', value: job}],
+        },
+      ],
+    });
+    expect(subscriber).toHaveBeenCalledOnce();
+    expect(job).toHaveBeenCalledOnce();
+    await app.close();
+  });
 });

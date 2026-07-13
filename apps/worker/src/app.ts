@@ -14,7 +14,7 @@ export interface WorkerCapabilities extends GlintCapabilityTypes {
   readonly routes: unknown;
   readonly auth: unknown;
   readonly publishers: unknown;
-  readonly subscribers: unknown;
+  readonly subscribers: () => Promise<void> | void;
   readonly jobs: () => Promise<void> | void;
   readonly metrics: () => void;
 }
@@ -63,8 +63,8 @@ export async function createWorkerApp(options: {
 
   const composition = composeModules(options.modules ?? []);
   const capabilities = selectCapabilities(composition, ['jobs', 'subscribers', 'metrics']);
+  for (const subscriber of capabilities.subscribers) await subscriber.value();
   for (const job of capabilities.jobs) await job.value();
   for (const metric of capabilities.metrics) metric.value();
-  void capabilities.subscribers;
   return app;
 }

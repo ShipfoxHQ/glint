@@ -1,5 +1,6 @@
 import {
   defineEnvironmentSchema,
+  type EnvironmentFor,
   environmentVariable,
   host,
   loadEnvironment,
@@ -32,17 +33,30 @@ const schema = defineEnvironmentSchema({
     description: 'Object-store secret access key.',
     sensitive: true,
   }),
+  GLINT_QUEUE_ACCESS_KEY_ID: environmentVariable(str({default: 'local-glint-queue'}), {
+    description: 'Job-queue access key.',
+    sensitive: true,
+  }),
+  GLINT_QUEUE_DEAD_LETTER_URL: environmentVariable(
+    url({default: 'http://127.0.0.1:9324/000000000000/glint-dead-letter'}),
+    {description: 'Job dead-letter queue URL.'},
+  ),
+  GLINT_QUEUE_ENDPOINT: environmentVariable(url({default: 'http://127.0.0.1:9324'}), {
+    description: 'SQS-compatible job-queue endpoint.',
+  }),
+  GLINT_QUEUE_REGION: environmentVariable(str({default: 'elasticmq'}), {
+    description: 'Job-queue region.',
+  }),
+  GLINT_QUEUE_SECRET_ACCESS_KEY: environmentVariable(str({default: 'local-glint-queue-secret'}), {
+    description: 'Job-queue secret access key.',
+    sensitive: true,
+  }),
+  GLINT_QUEUE_URL: environmentVariable(url({default: 'http://127.0.0.1:9324/000000000000/glint'}), {
+    description: 'Job source queue URL.',
+  }),
 });
 
-export interface ApiEnvironment {
-  readonly GLINT_API_HOST: string;
-  readonly GLINT_API_PORT: number;
-  readonly GLINT_OBJECT_STORE_ACCESS_KEY_ID: string;
-  readonly GLINT_OBJECT_STORE_BUCKET: string;
-  readonly GLINT_OBJECT_STORE_ENDPOINT: string;
-  readonly GLINT_OBJECT_STORE_REGION: string;
-  readonly GLINT_OBJECT_STORE_SECRET_ACCESS_KEY: string;
-}
+export type ApiEnvironment = EnvironmentFor<typeof schema>;
 
 export function loadApiEnvironment(environment: NodeJS.ProcessEnv = process.env): ApiEnvironment {
   return loadEnvironment(schema, environment);

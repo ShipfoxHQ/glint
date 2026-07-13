@@ -30,7 +30,7 @@ services:
       - 127.0.0.1:${GLINT_MINIO_CONSOLE_PORT:-9001}:9001
     restart: unless-stopped
     healthcheck:
-      test: [CMD, curl, --fail, http://localhost:9000/minio/health/live]
+      test: [CMD, mc, ready, local]
       interval: 5s
       timeout: 2s
       retries: 10
@@ -48,6 +48,16 @@ services:
         mc mb --ignore-existing local/glint
     restart: "no"
 
+  queue:
+    image: softwaremill/elasticmq-native:1.7.1
+    volumes:
+      - elasticmq:/data
+      - ./dev/elasticmq.conf:/opt/elasticmq.conf:ro
+    ports:
+      - 127.0.0.1:${GLINT_QUEUE_PORT:-9324}:9324
+    restart: unless-stopped
+
 volumes:
+  elasticmq:
   minio:
   postgres:
