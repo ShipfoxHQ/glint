@@ -54,6 +54,7 @@ export class PostgresDatabase implements Database {
   readonly #pool: Pool;
   #health: DatabaseHealth;
   #nextTransactionId = 1;
+  #recoveryVerification: Promise<void> | undefined;
   readonly #onPoolError = (error: Error): void => {
     this.#logger?.warn('PostgreSQL discarded an idle client after a connection error.', {
       ...databaseErrorAttributes(error),
@@ -78,11 +79,7 @@ export class PostgresDatabase implements Database {
   /** Verifies the connection once at process startup and caches readiness for dependency-free probes. */
   async initialize(): Promise<void> {
     try {
-      const result = await this.#pool.query<{lc_messages: string}>(
-        "SELECT current_setting('lc_messages') AS lc_messages",
-      );
-      if (result.rowCount !== 1) throw new Error('PostgreSQL readiness query returned no row.');
-      assertEnglishPostgresMessages(result.rows[0]?.lc_messages);
+      await this.#verifyConnection();
       this.#recordReady();
       this.#logger?.info('PostgreSQL connection is ready.');
     } catch (error) {
@@ -147,16 +144,24 @@ export class PostgresDatabase implements Database {
     return operation(postgresTransaction.drizzle);
   }
 
-  /** Observes concrete PostgreSQL operations that run outside Glint-managed transactions. */
+  /**
+   * Observes PostgreSQL operations outside Glint-managed transactions. Recovery from an
+   * unavailable state requires a concrete connection probe rather than trusting the callback.
+   */
   async runObserved<T>(operationName: string, operation: () => Promise<T>): Promise<T> {
+    let result: T;
     try {
-      const result = await operation();
-      this.#recordReady();
-      return result;
+      result = await operation();
     } catch (error) {
       if (isConnectionFailure(error)) this.#recordUnavailable(operationName, error);
       throw error;
     }
+    if (this.#health.status === 'unavailable') {
+      await this.#verifyRecovery();
+    } else {
+      this.#recordReady();
+    }
+    return result;
   }
 
   /** Returns cached state and never opens a connection or wakes a suspended managed database. */
@@ -202,6 +207,30 @@ export class PostgresDatabase implements Database {
       operation,
       ...databaseErrorAttributes(error),
     });
+  }
+
+  async #verifyConnection(): Promise<void> {
+    const result = await this.#pool.query<{lc_messages: string}>(
+      "SELECT current_setting('lc_messages') AS lc_messages",
+    );
+    if (result.rowCount !== 1) throw new Error('PostgreSQL readiness query returned no row.');
+    assertEnglishPostgresMessages(result.rows[0]?.lc_messages);
+  }
+
+  #verifyRecovery(): Promise<void> {
+    if (this.#recoveryVerification) return this.#recoveryVerification;
+    this.#recoveryVerification = (async () => {
+      try {
+        await this.#verifyConnection();
+        this.#recordReady();
+      } catch (error) {
+        this.#recordUnavailable('readiness-recovery', error);
+        throw error;
+      } finally {
+        this.#recoveryVerification = undefined;
+      }
+    })();
+    return this.#recoveryVerification;
   }
 }
 

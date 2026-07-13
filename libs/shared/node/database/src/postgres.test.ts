@@ -122,6 +122,114 @@ describe('PostgresDatabase readiness', () => {
     await database.close();
   });
 
+  it('requires a successful probe before an observed callback restores readiness', async () => {
+    const connectionError = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1'), {
+      code: 'ECONNREFUSED',
+    });
+    const pool = Object.assign(new EventEmitter(), {
+      end: vi.fn().mockResolvedValue(undefined),
+      query: vi
+        .fn()
+        .mockResolvedValueOnce({rowCount: 1, rows: [{lc_messages: 'C'}]})
+        .mockRejectedValue(connectionError),
+    }) as unknown as Pool;
+    const database = new PostgresDatabase({pool});
+
+    await database.initialize();
+    await expect(
+      database.runObserved('outbox.claim', () => Promise.reject(connectionError)),
+    ).rejects.toBe(connectionError);
+    await expect(database.runObserved('outbox.claim', () => Promise.resolve([]))).rejects.toBe(
+      connectionError,
+    );
+    await expect(database.health()).resolves.toMatchObject({status: 'unavailable'});
+    expect(pool.query).toHaveBeenCalledWith("SELECT current_setting('lc_messages') AS lc_messages");
+    await database.close();
+  });
+
+  it('records non-connection recovery failures with current diagnostics', async () => {
+    const connectionError = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1'), {
+      code: 'ECONNREFUSED',
+    });
+    const error = vi.fn();
+    const pool = Object.assign(new EventEmitter(), {
+      end: vi.fn().mockResolvedValue(undefined),
+      query: vi
+        .fn()
+        .mockResolvedValueOnce({rowCount: 1, rows: [{lc_messages: 'C'}]})
+        .mockResolvedValueOnce({rowCount: 0, rows: []}),
+    }) as unknown as Pool;
+    const database = new PostgresDatabase({
+      pool,
+      logger: {
+        child: vi.fn(),
+        debug: vi.fn(),
+        error,
+        fatal: vi.fn(),
+        info: vi.fn(),
+        trace: vi.fn(),
+        warn: vi.fn(),
+      },
+    });
+
+    await database.initialize();
+    await expect(
+      database.runObserved('outbox.claim', () => Promise.reject(connectionError)),
+    ).rejects.toBe(connectionError);
+    await expect(database.runObserved('outbox.claim', () => Promise.resolve([]))).rejects.toThrow(
+      'PostgreSQL readiness query returned no row.',
+    );
+    await expect(database.health()).resolves.toMatchObject({
+      status: 'unavailable',
+      detail: 'PostgreSQL: PostgreSQL readiness query returned no row.',
+    });
+    expect(error).toHaveBeenLastCalledWith('PostgreSQL connection is unavailable.', {
+      errorType: 'Error',
+      operation: 'readiness-recovery',
+    });
+    await database.close();
+  });
+
+  it('shares one recovery probe across concurrent observed operations', async () => {
+    const connectionError = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1'), {
+      code: 'ECONNREFUSED',
+    });
+    let resolveRecovery:
+      | ((result: {rowCount: number; rows: {lc_messages: string}[]}) => void)
+      | undefined;
+    const recovery = new Promise<{rowCount: number; rows: {lc_messages: string}[]}>((resolve) => {
+      resolveRecovery = resolve;
+    });
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({rowCount: 1, rows: [{lc_messages: 'C'}]})
+      .mockReturnValueOnce(recovery);
+    const pool = Object.assign(new EventEmitter(), {
+      end: vi.fn().mockResolvedValue(undefined),
+      query,
+    }) as unknown as Pool;
+    const database = new PostgresDatabase({pool});
+
+    await database.initialize();
+    await expect(
+      database.runObserved('outbox.claim', () => Promise.reject(connectionError)),
+    ).rejects.toBe(connectionError);
+    const operations = [
+      database.runObserved('outbox.claim', () => Promise.resolve('claim')),
+      database.runObserved('outbox.acknowledge', () => Promise.resolve('acknowledge')),
+      database.runObserved('outbox.retry', () => Promise.resolve('retry')),
+    ];
+    await Promise.resolve();
+    expect(query).toHaveBeenCalledTimes(2);
+    if (!resolveRecovery) throw new Error('Expected a pending recovery query.');
+    resolveRecovery({rowCount: 1, rows: [{lc_messages: 'C'}]});
+
+    await expect(Promise.all(operations)).resolves.toEqual(['claim', 'acknowledge', 'retry']);
+    await expect(database.health()).resolves.toMatchObject({status: 'ready'});
+    expect(query).toHaveBeenCalledTimes(2);
+    await database.close();
+  });
+
   it('maps only statement-timeout cancellations to the neutral timeout error', () => {
     const externalCancellation = Object.assign(
       new Error('canceling statement due to user request'),
