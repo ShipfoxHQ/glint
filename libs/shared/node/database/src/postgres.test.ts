@@ -122,6 +122,31 @@ describe('PostgresDatabase readiness', () => {
     await database.close();
   });
 
+  it('requires a successful probe before an observed callback restores readiness', async () => {
+    const connectionError = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1'), {
+      code: 'ECONNREFUSED',
+    });
+    const pool = Object.assign(new EventEmitter(), {
+      end: vi.fn().mockResolvedValue(undefined),
+      query: vi
+        .fn()
+        .mockResolvedValueOnce({rowCount: 1, rows: [{lc_messages: 'C'}]})
+        .mockRejectedValue(connectionError),
+    }) as unknown as Pool;
+    const database = new PostgresDatabase({pool});
+
+    await database.initialize();
+    await expect(
+      database.runObserved('outbox.claim', () => Promise.reject(connectionError)),
+    ).rejects.toBe(connectionError);
+    await expect(database.runObserved('outbox.claim', () => Promise.resolve([]))).rejects.toBe(
+      connectionError,
+    );
+    await expect(database.health()).resolves.toMatchObject({status: 'unavailable'});
+    expect(pool.query).toHaveBeenCalledWith("SELECT current_setting('lc_messages') AS lc_messages");
+    await database.close();
+  });
+
   it('maps only statement-timeout cancellations to the neutral timeout error', () => {
     const externalCancellation = Object.assign(
       new Error('canceling statement due to user request'),

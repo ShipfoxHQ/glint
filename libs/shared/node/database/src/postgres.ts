@@ -78,11 +78,7 @@ export class PostgresDatabase implements Database {
   /** Verifies the connection once at process startup and caches readiness for dependency-free probes. */
   async initialize(): Promise<void> {
     try {
-      const result = await this.#pool.query<{lc_messages: string}>(
-        "SELECT current_setting('lc_messages') AS lc_messages",
-      );
-      if (result.rowCount !== 1) throw new Error('PostgreSQL readiness query returned no row.');
-      assertEnglishPostgresMessages(result.rows[0]?.lc_messages);
+      await this.#verifyConnection();
       this.#recordReady();
       this.#logger?.info('PostgreSQL connection is ready.');
     } catch (error) {
@@ -147,10 +143,14 @@ export class PostgresDatabase implements Database {
     return operation(postgresTransaction.drizzle);
   }
 
-  /** Observes concrete PostgreSQL operations that run outside Glint-managed transactions. */
+  /**
+   * Observes PostgreSQL operations outside Glint-managed transactions. Recovery from an
+   * unavailable state requires a concrete connection probe rather than trusting the callback.
+   */
   async runObserved<T>(operationName: string, operation: () => Promise<T>): Promise<T> {
     try {
       const result = await operation();
+      if (this.#health.status === 'unavailable') await this.#verifyConnection();
       this.#recordReady();
       return result;
     } catch (error) {
@@ -202,6 +202,14 @@ export class PostgresDatabase implements Database {
       operation,
       ...databaseErrorAttributes(error),
     });
+  }
+
+  async #verifyConnection(): Promise<void> {
+    const result = await this.#pool.query<{lc_messages: string}>(
+      "SELECT current_setting('lc_messages') AS lc_messages",
+    );
+    if (result.rowCount !== 1) throw new Error('PostgreSQL readiness query returned no row.');
+    assertEnglishPostgresMessages(result.rows[0]?.lc_messages);
   }
 }
 
