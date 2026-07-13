@@ -1,0 +1,51 @@
+import {
+  defineEnvironmentSchema,
+  environmentVariable,
+  host,
+  loadEnvironment,
+  port,
+  str,
+  url,
+} from '@glint/node-config';
+
+const schema = defineEnvironmentSchema({
+  GLINT_OBJECT_STORE_ACCESS_KEY_ID: environmentVariable(str({default: 'local-glint'}), {
+    description: 'Object-store access key.',
+    sensitive: true,
+  }),
+  GLINT_OBJECT_STORE_BUCKET: environmentVariable(str({default: 'glint'}), {
+    description: 'Private object-store bucket name.',
+  }),
+  GLINT_OBJECT_STORE_ENDPOINT: environmentVariable(url({default: 'http://127.0.0.1:9000'}), {
+    description: 'S3-compatible object-store endpoint.',
+  }),
+  GLINT_OBJECT_STORE_REGION: environmentVariable(str({default: 'local'}), {
+    description: 'S3-compatible object-store region.',
+  }),
+  GLINT_OBJECT_STORE_SECRET_ACCESS_KEY: environmentVariable(str({default: 'local-glint-secret'}), {
+    description: 'Object-store secret access key.',
+    sensitive: true,
+  }),
+  GLINT_WORKER_HOST: environmentVariable(host({default: '127.0.0.1'}), {
+    description: 'Interface used by the local worker health listener.',
+  }),
+  GLINT_WORKER_PORT: environmentVariable(port({default: 3002}), {
+    description: 'TCP port used by the local worker health listener.',
+  }),
+});
+
+export interface WorkerEnvironment {
+  readonly GLINT_OBJECT_STORE_ACCESS_KEY_ID: string;
+  readonly GLINT_OBJECT_STORE_BUCKET: string;
+  readonly GLINT_OBJECT_STORE_ENDPOINT: string;
+  readonly GLINT_OBJECT_STORE_REGION: string;
+  readonly GLINT_OBJECT_STORE_SECRET_ACCESS_KEY: string;
+  readonly GLINT_WORKER_HOST: string;
+  readonly GLINT_WORKER_PORT: number;
+}
+
+export function loadWorkerEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+): WorkerEnvironment {
+  return loadEnvironment(schema, environment);
+}

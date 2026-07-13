@@ -8,8 +8,12 @@
     "pnpm": "11.7.0"
   },
   "scripts": {
-    "check:architecture": "shipfox-biome-check architecture templates",
+    "check:architecture": "shipfox-biome-check architecture templates dev",
     "depcruise:workspace": "node architecture/check-workspace-graph.mjs",
+    "local:reset": "node dev/local-stack.mjs reset",
+    "local:start": "node dev/local-stack.mjs start",
+    "local:stop": "node dev/local-stack.mjs stop",
+    "local:test": "node dev/local-stack.mjs test",
     "test:architecture": "node --test architecture/*.test.mjs"
   },
   "devDependencies": {

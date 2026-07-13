@@ -45,6 +45,22 @@ description = "Run reusable database and outbox contracts against PostgreSQL 18"
 env = { GLINT_POSTGRES_TEST = "1" }
 run = "turbo test --filter=@glint/node-database --filter=@glint/node-outbox --force"
 
+[tasks."local:start"]
+description = "Build and start the complete local Glint stack"
+run = "pnpm run local:start"
+
+[tasks."local:stop"]
+description = "Stop local Glint apps and services while preserving state"
+run = "pnpm run local:stop"
+
+[tasks."local:reset"]
+description = "Reset local Glint state and start a clean stack"
+run = "pnpm run local:reset"
+
+[tasks."local:test"]
+description = "Exercise migrations and every local app health endpoint"
+run = "pnpm run local:test"
+
 [tasks.verify]
 description = "Run every local workspace quality gate"
 run = "pnpm run check:architecture && pnpm run test:architecture && pnpm run depcruise:workspace && turbo check type type:emit build test depcruise"

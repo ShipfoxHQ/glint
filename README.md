@@ -21,19 +21,37 @@ The individual `build`, `check`, `type`, `type:emit`, `test`, and `depcruise` ta
 available through `mise run <task>`. Package scripts remain independently runnable through
 pnpm as packages land.
 
-## Local services
+## Local stack
 
-The root `compose.yml` is the local application stack. Start it with:
+One command builds the four composition roots, starts PostgreSQL and MinIO, creates the private
+local bucket, runs migrations once, and waits for the API, worker, and web readiness probes:
 
 ```sh
-docker compose up -d --wait
+mise run local:start
 ```
 
-It currently provides PostgreSQL 18 with persistent `glint` and isolated `glint_test` databases;
-later composition-root issues add their services to the same file. Set `GLINT_POSTGRES_PORT` when
-another workspace already owns port 5432 and expose the same value to processes as `POSTGRES_PORT`.
-With PostgreSQL running, `mise run database:test` exercises the real transaction, migration, and
-outbox contracts.
+No cloud credentials are required. The local defaults are web `3000`, API `3001`, worker health
+`3002`, PostgreSQL `5432`, MinIO `9000`, and the MinIO console `9001`. In Conductor, the command
+uses `CONDUCTOR_PORT` through `CONDUCTOR_PORT+5`, so multiple workspaces can run concurrently.
+The API and worker construct PostgreSQL, S3-compatible object-store, in-process queue,
+configuration, and observability adapters at their entrypoints. No domain behavior lives in an
+app.
+
+Use the lifecycle commands to exercise or clean up the environment:
+
+```sh
+mise run local:test   # migrations plus API, worker, and web health/readiness
+mise run local:stop   # stop processes and containers, preserving PostgreSQL/MinIO volumes
+mise run local:start  # restart against the preserved state
+mise run local:reset  # delete local volumes and start a clean stack
+```
+
+Logs for the three long-running apps live under `.glint-local/`. Override individual ports with
+`GLINT_WEB_PORT`, `GLINT_API_PORT`, `GLINT_WORKER_PORT`, `GLINT_POSTGRES_PORT`,
+`GLINT_MINIO_PORT`, and `GLINT_MINIO_CONSOLE_PORT` when needed.
+
+The root `compose.yml` also remains usable for dependency-only development. With PostgreSQL
+running, `mise run database:test` exercises the real transaction, migration, and outbox contracts.
 
 ## Package architecture
 
