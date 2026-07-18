@@ -63,4 +63,4 @@ run = "pnpm run local:test"
 
 [tasks.verify]
 description = "Run every local workspace quality gate"
-run = "pnpm run check:architecture && pnpm run test:architecture && pnpm run depcruise:workspace && turbo check type type:emit build test depcruise"
+run = "pnpm run check:architecture && pnpm run test:architecture && pnpm run depcruise:workspace && turbo check type type:emit build depcruise && pnpm run export-check && turbo test"

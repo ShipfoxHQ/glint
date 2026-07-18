@@ -180,6 +180,9 @@ importers:
       '@shipfox/depcruise':
         specifier: 1.0.1
         version: 1.0.1
+      '@shipfox/docker':
+        specifier: 0.1.1
+        version: 0.1.1
       '@shipfox/swc':
         specifier: 1.2.5
         version: 1.2.5(@swc/helpers@0.5.23)
@@ -2161,6 +2164,10 @@ packages:
 
   '@shipfox/depcruise@1.0.1':
     resolution: {integrity: sha512-djv8wr7mmuZjdVuvWIVgp+oS9SeeMIu/NIqF0v1HGhdgVNogdAOrq+O7kCYVgaySIyPX+L1Uf3cq1VTiY8vISg==}
+    hasBin: true
+
+  '@shipfox/docker@0.1.1':
+    resolution: {integrity: sha512-b6MnyaNBI1kxMQ6fd1qfAR8xOHZpfG4I0A0uL3TRsRn/xD5hcXdpOA8n1GTdWB3n+QBphMGUT1cXxs5JodCYsQ==}
     hasBin: true
 
   '@shipfox/node-drizzle@0.2.0':
@@ -6456,6 +6463,10 @@ snapshots:
     dependencies:
       '@shipfox/tool-utils': 1.1.3
       dependency-cruiser: 17.4.3
+
+  '@shipfox/docker@0.1.1':
+    dependencies:
+      '@shipfox/tool-utils': 1.1.3
 
   '@shipfox/node-drizzle@0.2.0(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)':
     dependencies:

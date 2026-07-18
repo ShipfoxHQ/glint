@@ -21,6 +21,9 @@ The individual `build`, `check`, `type`, `type:emit`, `test`, and `depcruise` ta
 available through `mise run <task>`. Package scripts remain independently runnable through
 pnpm as packages land.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the required pull-request checks, the migration
+database gate, and worker-image validation.
+
 ## Local stack
 
 One command builds the four composition roots, starts PostgreSQL and Garage, creates the private

@@ -1,0 +1,5 @@
+# shipfox-docker prepares apps/worker/out as the complete, pruned build context.
+*
+!Dockerfile
+!out/
+!out/**
