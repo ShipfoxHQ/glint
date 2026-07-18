@@ -5,6 +5,10 @@ vcsProviderContractTests('in-memory', () => {
   const provider = new InMemoryVcsProvider(() => new Date(0));
   provider.seedRepository({
     id: 'repo-1',
+    provider: 'in-memory',
+    namespaceId: 'namespace-1',
+    installationId: 'installation-1',
+    state: 'active',
     owner: 'shipfox',
     name: 'glint',
     defaultBranch: 'main',
