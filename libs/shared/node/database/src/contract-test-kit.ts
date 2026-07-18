@@ -54,12 +54,52 @@ export function databaseContractTests(
       ).resolves.toBeUndefined();
     });
 
+    it('keeps identity-scoped work after commit and removes it on rollback', async () => {
+      const harness = await createHarness();
+      await harness.database.transaction(
+        (transaction) => Promise.resolve(harness.write(transaction, 'bootstrap', 'committed')),
+        {identity: {identityId: 'identity-1'}},
+      );
+      await expect(
+        harness.database.transaction(
+          (transaction) => Promise.resolve(harness.read(transaction, 'bootstrap')),
+          {identity: {identityId: 'identity-1'}},
+        ),
+      ).resolves.toBe('committed');
+
+      await expect(
+        harness.database.transaction(
+          async (transaction) => {
+            await harness.write(transaction, 'rollback', 'no');
+            throw new Error('identity rollback');
+          },
+          {identity: {identityId: 'identity-1'}},
+        ),
+      ).rejects.toThrow('identity rollback');
+      await expect(
+        harness.database.transaction(
+          (transaction) => Promise.resolve(harness.read(transaction, 'rollback')),
+          {identity: {identityId: 'identity-1'}},
+        ),
+      ).resolves.toBeUndefined();
+    });
+
     it('enforces read-only transactions', async () => {
       const harness = await createHarness();
       await expect(
         harness.database.transaction(
           (transaction) => Promise.resolve(harness.write(transaction, 'forbidden', 'value')),
           {readOnly: true},
+        ),
+      ).rejects.toMatchObject({code: 'read_only_transaction'});
+    });
+
+    it('enforces read-only transactions in identity scope', async () => {
+      const harness = await createHarness();
+      await expect(
+        harness.database.transaction(
+          (transaction) => Promise.resolve(harness.write(transaction, 'forbidden', 'value')),
+          {identity: {identityId: 'identity-1'}, readOnly: true},
         ),
       ).rejects.toMatchObject({code: 'read_only_transaction'});
     });
@@ -83,8 +123,21 @@ export function databaseContractTests(
       );
     });
 
+    it('rejects blank identity contexts before running the transaction', async () => {
+      await expect(
+        harnessTransaction(createHarness, {
+          identity: {identityId: '   '},
+        } as unknown as Parameters<Database['transaction']>[1]),
+      ).rejects.toThrow('Transaction identity must contain a non-empty identityId string.');
+    });
+
     it.each([
       [{tenant: null}, 'Transaction tenant must contain a non-empty accountId string.'],
+      [{identity: null}, 'Transaction identity must contain a non-empty identityId string.'],
+      [
+        {identity: {identityId: 'identity-1'}, tenant: {accountId: 'account-1'}},
+        'Transaction cannot combine identity and tenant contexts.',
+      ],
       [
         {isolation: 'read-uncommitted'},
         'Transaction isolation must be read-committed, repeatable-read, or serializable.',
@@ -122,6 +175,32 @@ export function databaseContractTests(
           {tenant: {accountId: 'account-2'}},
         ),
       ).resolves.toBe('two');
+    });
+
+    it('isolates identity scope from global, other identities, and tenant scope', async () => {
+      const harness = await createHarness();
+      await harness.database.transaction(
+        (transaction) =>
+          Promise.resolve(harness.write(transaction, 'identity-shared-key', 'identity-one')),
+        {identity: {identityId: 'identity-1'}},
+      );
+      await expect(
+        harness.database.transaction(
+          (transaction) => Promise.resolve(harness.read(transaction, 'identity-shared-key')),
+          {identity: {identityId: 'identity-2'}},
+        ),
+      ).resolves.toBeUndefined();
+      await expect(
+        harness.database.transaction((transaction) =>
+          Promise.resolve(harness.read(transaction, 'identity-shared-key')),
+        ),
+      ).resolves.toBeUndefined();
+      await expect(
+        harness.database.transaction(
+          (transaction) => Promise.resolve(harness.read(transaction, 'identity-shared-key')),
+          {tenant: {accountId: 'account-1'}},
+        ),
+      ).resolves.toBeUndefined();
     });
 
     it('provides repeatable reads from a transaction snapshot', async () => {
@@ -163,6 +242,40 @@ export function databaseContractTests(
         }
       })();
 
+      await Promise.all([reader, writer]);
+    });
+
+    it('provides repeatable reads from an identity-scoped transaction snapshot', async () => {
+      const harness = await createHarness();
+      await harness.database.transaction(
+        (transaction) => Promise.resolve(harness.write(transaction, 'snapshot', 'before')),
+        {identity: {identityId: 'identity-1'}},
+      );
+      let signalReaderStarted: () => void = () => undefined;
+      const readerStarted = new Promise<void>((resolve) => {
+        signalReaderStarted = resolve;
+      });
+      let signalWriterCommitted: () => void = () => undefined;
+      const writerCommitted = new Promise<void>((resolve) => {
+        signalWriterCommitted = resolve;
+      });
+      const reader = harness.database.transaction(
+        async (transaction) => {
+          expect(await harness.read(transaction, 'snapshot')).toBe('before');
+          signalReaderStarted();
+          await writerCommitted;
+          expect(await harness.read(transaction, 'snapshot')).toBe('before');
+        },
+        {identity: {identityId: 'identity-1'}, isolation: 'repeatable-read'},
+      );
+      const writer = (async () => {
+        await readerStarted;
+        await harness.database.transaction(
+          (transaction) => Promise.resolve(harness.write(transaction, 'snapshot', 'after')),
+          {identity: {identityId: 'identity-1'}},
+        );
+        signalWriterCommitted();
+      })();
       await Promise.all([reader, writer]);
     });
 

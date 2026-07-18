@@ -22,6 +22,8 @@ export type {
   Database,
   DatabaseHealth,
   DatabaseTransaction,
+  IdentityTransactionContext,
+  TenantTransactionContext,
   TransactionOptions,
 } from './types.js';
 export {

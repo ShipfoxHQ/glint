@@ -2,7 +2,15 @@ export interface DatabaseTransaction {
   readonly id: string;
 }
 
-export interface TransactionOptions {
+export interface IdentityTransactionContext {
+  readonly identityId: string;
+}
+
+export interface TenantTransactionContext {
+  readonly accountId: string;
+}
+
+interface TransactionBehaviorOptions {
   /**
    * `repeatable-read` provides a stable MVCC-style snapshot and must not block an independent
    * transaction from committing an update to data read by the snapshot.
@@ -10,8 +18,15 @@ export interface TransactionOptions {
   readonly isolation?: 'read-committed' | 'repeatable-read' | 'serializable';
   readonly readOnly?: boolean;
   readonly statementTimeoutMs?: number;
-  readonly tenant?: {readonly accountId: string};
 }
+
+/** A managed transaction is global, identity-scoped, or tenant-scoped, never a combination. */
+export type TransactionOptions = TransactionBehaviorOptions &
+  (
+    | {readonly identity?: never; readonly tenant?: never}
+    | {readonly identity: IdentityTransactionContext; readonly tenant?: never}
+    | {readonly identity?: never; readonly tenant: TenantTransactionContext}
+  );
 
 export const MVP_DATABASE_POLICY = {
   statementTimeoutMs: 5_000,
@@ -60,7 +75,19 @@ export function validateTransactionOptions(options: TransactionOptions): void {
   if (readOnly !== undefined && typeof readOnly !== 'boolean') {
     throw new Error('Transaction readOnly must be a boolean.');
   }
+  const identity: unknown = options.identity;
   const tenant: unknown = options.tenant;
+  if (identity !== undefined && tenant !== undefined) {
+    throw new Error('Transaction cannot combine identity and tenant contexts.');
+  }
+  if (identity !== undefined) {
+    if (identity === null || typeof identity !== 'object' || !('identityId' in identity)) {
+      throw new Error('Transaction identity must contain a non-empty identityId string.');
+    }
+    if (typeof identity.identityId !== 'string' || identity.identityId.trim().length === 0) {
+      throw new Error('Transaction identity must contain a non-empty identityId string.');
+    }
+  }
   if (tenant !== undefined) {
     if (tenant === null || typeof tenant !== 'object' || !('accountId' in tenant)) {
       throw new Error('Transaction tenant must contain a non-empty accountId string.');

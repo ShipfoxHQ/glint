@@ -18,8 +18,8 @@ await database.transaction(async (transaction) => {
 
 `createPostgresDatabase()` validates configuration, creates the pool, and runs one startup
 connection and message-locale check. It never runs migrations. Transactions default to the
-five-second MVP statement deadline and support read-only, isolation, and transaction-local tenant
-context options. The
+five-second MVP statement deadline and support read-only, isolation, and transaction-local scope
+options. The
 Shipfox PostgreSQL factory owns one process-wide pool; construct it once in each composition root
 and close it during graceful shutdown. Supported PostgreSQL environments must expose English
 `lc_messages` (`C`, `POSIX`, or an `en_*` locale) so SQLSTATE `57014` cancellations can be
@@ -29,6 +29,29 @@ distinguished as statement timeouts without misclassifying external cancellation
 checks do not wake a suspended Neon database. Startup and runtime connection failures update the
 cached state and emit an actionable structured log. Register `database.assertReady` with the
 observability health registry when dependency-aware readiness is required.
+
+## Transaction scopes
+
+Every managed transaction is exactly one of these scopes:
+
+```text
+global -> session lookup
+identity(identityId) -> account summaries and access projections
+tenant(accountId) -> account resources, after application authorization
+```
+
+The options are mutually exclusive. Use `identity: {identityId}` for bootstrap discovery and keep
+the existing `tenant: {accountId}` syntax for account resources; omit both for a global
+transaction. The database boundary is structural only: provider-derived authorization and the
+decision to begin an account transaction belong to the application layer (GLI-26).
+
+PostgreSQL sets `statement_timeout`, `glint.identity_id`, and `glint.account_id` through one
+parameterized, transaction-local setup query. Managed transactions explicitly set unused contexts
+to an empty string and policies should normalize them with
+`NULLIF(current_setting('glint.identity_id', true), '')` or
+`NULLIF(current_setting('glint.account_id', true), '')`; PostgreSQL can return an empty string for
+an unset custom setting. Local settings reset after commit or rollback, preventing a pooled client
+from carrying either scope into later work.
 
 ## One-shot migrations
 

@@ -103,14 +103,12 @@ export class PostgresDatabase implements Database {
             drizzleTransaction,
           );
           try {
-            await drizzleTransaction.execute(
-              sql`SELECT set_config('statement_timeout', ${`${statementTimeoutMs}ms`}, true)`,
-            );
-            if (options.tenant) {
-              await drizzleTransaction.execute(
-                sql`SELECT set_config('glint.account_id', ${options.tenant.accountId}, true)`,
-              );
-            }
+            await drizzleTransaction.execute(sql`
+              SELECT
+                set_config('statement_timeout', ${`${statementTimeoutMs}ms`}, true),
+                set_config('glint.identity_id', ${options.identity?.identityId ?? ''}, true),
+                set_config('glint.account_id', ${options.tenant?.accountId ?? ''}, true)
+            `);
             return await operation(transaction);
           } finally {
             transaction.active = false;
