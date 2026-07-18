@@ -6,6 +6,7 @@ Repo: `ShipfoxHQ/glint`
 Status: APPROVED
 Mode: Startup (internal infrastructure, open-source distribution)
 Linear plan: https://linear.app/shipfox/document/glint-system-design-and-epic-plan-5ab6372620ef
+E1 approved specification: https://linear.app/shipfox/document/product-specification-and-system-design-266dbd527c8e
 
 ## Linear execution index
 
@@ -32,7 +33,7 @@ Build Glint as a lean, multi-tenant visual regression control plane with:
 - content-addressed, tenant-scoped object storage;
 - server-authoritative, asynchronous image comparison;
 - a React review dashboard using the published `@shipfox/react-ui` package;
-- GitHub OAuth for people and a GitHub App for repository events and Checks;
+- one GitHub App for user authorization, provider-backed tenancy, repository installation, and webhooks, with later permissions staged by their owning epics;
 - a current-target-branch baseline model optimized for repositories that rerun the complete visual suite after merge;
 - a modular pnpm/Turbo monorepo modeled on Shipfox's thin apps, feature packages, sibling DTO contracts, client packages, and enforced dependency layers;
 - portable infrastructure boundaries around PostgreSQL, S3-compatible storage, a job queue, and diff workers.
@@ -91,6 +92,8 @@ Narrowest complete workflow:
 
 - Hosted browsers or remote Storybook rendering.
 - GitLab integration.
+- Cross-provider identity linking or automatic account merging by email.
+- Glint-owned invitations, manually assigned memberships, or custom account roles.
 - Billing, plans, screenshot quotas, or payment processing.
 - Per-screenshot comments, collaborative threads, requested reviewers, or Slack notifications.
 - Playwright trace hosting.
@@ -107,8 +110,11 @@ Narrowest complete workflow:
 3. Shipfox's complete post-merge run is the authoritative source for the target-branch baseline.
 4. Approval gates the pull request but does not mutate the baseline directly.
 5. Public visibility is an explicit project setting. Writes always require scoped authentication.
-6. GitHub OAuth authenticates people; a GitHub App owns repository events and Checks.
+6. One GitHub App authenticates people and owns installation operations. E1 requests only Organization Members read, Repository Metadata read, and its lifecycle webhooks; pull-request and Check permissions land in their owning later epics.
 7. We will reuse open Argos producer contracts, not the operationally broad Argos platform.
+8. A Glint account is backed by one provider organization/group or personal namespace. Provider access is authoritative, and each provider identity is an independent Glint principal; cross-provider linking is out of scope.
+9. One active provider repository owns exactly one Glint project. `buildName` separates visual surfaces within that project.
+10. Mutation responses are replayable except token creation: the secret is returned once and never stored in recoverable form.
 
 ## Approaches considered
 
@@ -141,9 +147,9 @@ glint/
   libs/
     api/
       common-dto/                Shared cursor/error/identity wire schemas only
-      accounts/                  Users, accounts, memberships, sessions
+      accounts/                  Provider identities, namespaces/accounts, installations, access projections, sessions
       accounts-dto/
-      projects/                  Installations, repositories, projects, upload tokens
+      projects/                  Repository projections, one-project-per-repository policy, upload tokens
       projects-dto/
       assets/                    Content-addressed asset registry and verification lifecycle
       assets-dto/                Asset events and shared contract types
@@ -155,9 +161,9 @@ glint/
         argos/                   Argos v2 route adapter and wire-to-core mapping
         argos-dto/               Recorded compatibility schemas/OpenAPI fixtures
       vcs/
-        core/                    Provider-neutral repository/PR/branch/Check interfaces
-        core-dto/                Provider event names and payload contracts
-        github/                  GitHub OAuth/App/webhook/Checks implementation
+        core/                    Provider-neutral identity/namespace/installation/repository/PR/Check interfaces
+        core-dto/                Provider-neutral identity, namespace, installation, repository, and event contracts
+        github/                  GitHub OAuth/App/webhook implementation; later PR/Check capabilities
 
     client/
       api/                       JSON transport, auth refresh, ApiError handling
@@ -256,14 +262,14 @@ Not every package needs every directory. `compat/argos` is primarily presentatio
 
 | Package | Owns | Does not own |
 | --- | --- | --- |
-| `api-accounts` | Users, accounts, memberships, sessions, roles | GitHub installations or projects |
-| `api-projects` | VCS installation links, repositories, projects, compatibility tokens | Builds, blobs, comparisons |
+| `api-accounts` | Provider identities, sessions, provider namespaces/accounts, installation linkage, provider-derived membership projections, authorization policy | Repository/project/token persistence or provider SDK calls |
+| `api-projects` | Repository projections, one-project-per-repository policy, private project creation, compatibility tokens | Sessions, namespace-access policy, installation linkage, or provider SDK calls |
 | `api-assets` | Asset rows, tenant hashes, upload/verification leases, retention refs | Build manifests or diff policy |
 | `api-builds` | Build/shard assembly, snapshot identities, baseline pointers, reviews, logical Check state | Blob I/O or pixel algorithms |
 | `api-diffs` | Diff jobs, engine config/version, comparison artifacts, masks, regions | Baseline selection or review policy |
 | `api-compat-argos` | Exact `/v2` wire compatibility and conversion | Core build policy |
-| `api-vcs-core` | Provider ports and provider-neutral repository/PR/branch/Check model | GitHub SDK calls |
-| `api-vcs-github` | OAuth/App tokens, signature verification, GitHub API/webhook mapping | Core baseline/review decisions |
+| `api-vcs-core` | Small provider ports and provider-neutral identity/namespace/installation/repository/PR/branch/Check model | Provider SDK calls, OAuth storage, SQL, or Glint role policy |
+| `api-vcs-github` | GitHub OAuth/App authentication, installation tokens, namespace/repository lookup, signature verification, and webhook mapping | Glint account, project, role, baseline, or review policy |
 
 Cross-feature orchestration uses injected public service ports for synchronous reads/actions and typed outbox events for asynchronous work. A feature never reaches into another feature's Drizzle schema or `db/` helpers. State change and its outbox event commit in the same module-owned transaction.
 
@@ -401,7 +407,7 @@ flowchart LR
   end
 
   Blob[(S3-compatible object storage)]
-  GH[GitHub OAuth, App, Checks, webhooks]
+  GH[GitHub App auth, installations, webhooks, and later Checks]
 
   Tests --> SDK
   SDK -->|manifest and finalize| API
@@ -430,9 +436,9 @@ flowchart LR
 | Object store | Immutable source images and diff masks | Authorization decisions or baseline pointers |
 | Queue | At-least-once job delivery | Source of truth for job state |
 | Diff worker | Verify inputs, compare pixels, produce masks/regions | User auth, baseline selection, GitHub updates |
-| GitHub adapter | OAuth, App tokens, webhooks, Checks | Core build-policy decisions |
+| Provider adapters | Identity, namespace access, installation/repository lookup, webhooks, and later PR/Check capabilities | Glint account, role, project, or build-policy decisions |
 
-Core interfaces should include `BlobStore`, `JobQueue`, `DiffEngine`, and `VcsProvider`. They permit S3/R2/Garage, SQS/Cloudflare Queues/local adapters, ODiff/Pixelmatch, and GitHub/GitLab without leaking provider concepts into build logic.
+Core interfaces should include `BlobStore`, `JobQueue`, `DiffEngine`, and small provider-neutral VCS capabilities rather than one provider mega-interface. Identity, namespace access, installation, repository, webhook, pull-request, branch, and Check contracts permit S3/R2/Garage, SQS/Cloudflare Queues/local adapters, ODiff/Pixelmatch, and a future GitLab adapter without leaking provider SDK concepts into Glint policy.
 
 ## Ingestion protocol
 
@@ -721,13 +727,15 @@ All tenant-owned tables include `account_id`. Relationships use account-scoped c
 
 | Entity | Key fields and purpose |
 | --- | --- |
-| `users` | GitHub identity, profile metadata |
-| `accounts` | Tenant slug, name, default visibility, limits |
-| `memberships` | Account/user role: owner, reviewer, viewer |
-| `vcs_installations` | Provider type, GitHub installation ID, encrypted/scoped metadata |
-| `repositories` | Account, provider repository ID, owner/name, default branch, installation |
-| `projects` | Repository link, slug, visibility, retention and baseline policy |
-| `project_tokens` | Hashed upload credential, prefix, scopes, created/revoked timestamps |
+| `provider_identities` | Provider, stable provider user ID, login/profile metadata; each row is an independent Glint principal |
+| `sessions` | Identity, keyed token digest, created/last-seen/absolute/inactivity expiry, revoked time |
+| `oauth_attempts` | One-time state digest, PKCE data, return location, environment, expiry, consumed time |
+| `accounts` | Provider namespace ID/kind (`organization | user`), stable slug, display metadata, `active | suspended` |
+| `vcs_installations` | Account, provider installation ID and lifecycle state; owned with namespace linkage by `api-accounts` |
+| `memberships` | Provider-derived identity/account access projection with provider role, normalized `owner | reviewer | viewer`, state, verification time, and lease expiry; `viewer` is reserved and not assigned by E1 |
+| `repositories` | Account, installation, stable provider repository ID, owner/name, default branch, visibility, access state |
+| `projects` | Account, unique repository link, stable slug/name, visibility, state, retention and baseline policy |
+| `project_tokens` | Named compatibility credential prefix and keyed digest, fixed scope, creator, last-used, and revoked timestamps; no recoverable secret |
 | `builds` | Project, build name, commit, branch, PR, target branch, immutable attempt/version, baseline build used, four state dimensions |
 | `build_shards` | Parallel nonce/index/total, finalization state |
 | `snapshot_tests` | Stable project/build-name/name/variant identity |
@@ -737,15 +745,19 @@ All tenant-owned tables include `account_id`. Relationships use account-scoped c
 | `comparisons` | Build/test, base/head snapshot links, status, shared artifact link |
 | `branch_observations` | Trusted repository/branch epoch/generation/head SHA from reconciled GitHub push events |
 | `baseline_pointers` | Project/build-name/branch → promoted build, commit, branch epoch/generation, pointer version |
-| `reviews` | Build, user, decision, audit data |
+| `reviews` | Build, provider identity, decision, audit data |
 | `webhook_deliveries` | Provider delivery ID, event/action, processing result for idempotency |
 | `outbox_events` | Transactional jobs/integration updates awaiting delivery |
 
 Important uniqueness constraints:
 
+- provider identity by `(provider, provider_user_id)`;
+- provider namespace account by `(provider, provider_namespace_id)`;
 - account slug;
-- provider installation external ID;
+- provider installation external ID and one current installation per account/provider;
+- membership projection per account/identity;
 - provider repository external ID per account;
+- one project per repository;
 - project slug per account;
 - asset hash per account;
 - build identity per project/build-name/commit/run identity;
@@ -755,28 +767,32 @@ Important uniqueness constraints:
 - baseline pointer per project/build-name/branch;
 - webhook provider/delivery ID.
 
+Provider names and slugs are display/routing data; stable external IDs own relationships. Authentication repositories may locate a session globally, then account discovery runs in an identity-scoped bootstrap transaction that can expose only that identity's access projections and account summaries. Tenant resource access begins only after provider-derived authorization succeeds and a separate account-scoped transaction sets `glint.account_id`. No API route writes a membership projection directly.
+
 ## GitHub integration
 
 ### Authentication and installation
 
-- GitHub OAuth logs dashboard users in and links a stable GitHub user ID.
-- A GitHub App is installed on selected repositories.
+- One GitHub App handles OAuth user authorization, installation operations, and lifecycle webhooks. Staging and production use separate App registrations, callbacks, credentials, and webhook secrets.
+- OAuth creates or updates a provider identity keyed by the stable GitHub user ID. The temporary GitHub user credential is discarded after identity and installation discovery; it is not persisted.
+- A Glint account represents an installed GitHub organization or personal account. Organization membership is authoritative; an active organization `admin` maps to `owner`, an active `member` maps to `reviewer`, and a personal namespace maps to `owner` only when its stable account ID matches the signed-in provider identity.
+- Membership rows are short-lived access projections, not Glint-managed invitations. Required verification failures deny access; owner-only mutations always revalidate provider ownership.
+- Provider namespace and installation linkage belong to `api-accounts`; repository projections and projects belong to `api-projects`.
 - Installation access tokens are generated server-side and never exposed to the browser.
-- Account membership is explicit. GitHub organization/repository access may seed onboarding but does not silently grant durable Glint roles without policy.
+- GitLab remains a future adapter. E1 exposes no GitLab credentials, routes, UI, or implemented behavior, and never links identities automatically across providers or by email.
 
 ### Minimal App permissions
 
+- Organization Members: read. This applies to organization installations; personal-account installations remain supported without an organization membership lookup.
 - Metadata: read.
-- Pull requests: read.
-- Checks: read/write.
-- Contents or commit metadata: only the minimum required to verify branch heads/ancestry; avoid source-content access where possible.
 
-Webhook subscriptions:
+E1 webhook subscriptions are limited to:
 
 - installation and installation repositories;
-- pull request;
-- push;
-- check run requested actions only if Glint offers rerun/review actions later.
+- membership and required organization lifecycle events;
+- GitHub App authorization revocation.
+
+Pull requests read, Checks write, Contents access, push events, pull-request events, and Check actions are not requested by E1. E4/E7 add only the capabilities they own, together with an installation-owner approval path and behavior for installations that have not accepted the new permissions.
 
 Every webhook verifies the signature before parsing, stores the delivery ID, and is idempotent.
 
@@ -863,21 +879,37 @@ Representative read endpoints:
 
 The public unauthenticated read surface is post-cutover E8. The authenticated MVP still uses the same resource representations for the dashboard.
 
-MVP mutation endpoints:
+E1 authentication and account routes:
 
 | Endpoint | Authorization and behavior |
 | --- | --- |
-| `POST /api/v1/accounts` | Authenticated user; creator becomes owner; idempotent by request key |
-| `POST /api/v1/accounts/{accountId}/memberships` | Owner; invite/add viewer or reviewer; audited |
-| `PATCH /api/v1/accounts/{accountId}/memberships/{userId}` | Owner; role change/removal; cannot remove final owner |
-| `POST /api/v1/github/installations/{installationId}/link` | Account owner with matching GitHub access; links selected repositories idempotently |
-| `POST /api/v1/projects` | Account owner; selected linked repository; private by default |
-| `PATCH /api/v1/projects/{projectId}` | Owner; MVP permits name and retention/baseline policy; E8 adds audited visibility changes |
-| `POST /api/v1/projects/{projectId}/tokens` | Owner; creates one 40-character compatibility token shown once; audited |
-| `DELETE /api/v1/projects/{projectId}/tokens/{tokenId}` | Owner; immediate revocation; idempotent |
-| `POST /api/v1/builds/{buildId}/reviews` | Reviewer/owner; immutable decision event with required `Idempotency-Key` and build version |
+| `GET /api/v1/auth/github/start` | Public; create one-time state/PKCE attempt and redirect through the GitHub App |
+| `GET /api/v1/auth/github/callback` | One-time OAuth attempt; exchange code, create provider identity/session, and redirect to account selection |
+| `GET /api/v1/session` | Session; return identity and accessible projected accounts, refreshing the selected account when required |
+| `POST /api/v1/session/refresh` | Session + selected account; force provider namespace-access verification and rotate session metadata |
+| `POST /api/v1/session/logout` | Session; revoke the current session |
+| `POST /api/v1/session/logout-all` | Session; revoke every active session for the provider identity |
+| `GET /api/v1/accounts` | Session; list only active provider-derived access projections and account summaries |
+| `GET /api/v1/accounts/{accountId}` | Current namespace access; return account and installation health |
+| `GET /api/v1/accounts/{accountId}/repositories` | Current namespace access; list active and removed repository projections without cross-account leakage |
 
-OAuth callback/session routes are framework-owned but must preserve state/PKCE and audited account linkage. All successful native mutations return the effective resource version. Repeating an `Idempotency-Key` for the same actor/route/body returns the original result; reusing it with a different body is a conflict.
+There is no account-create, invitation, or membership-mutation route. Accounts and membership projections are created or refreshed only from verified provider namespace and installation state.
+
+E1 installation, project, and token routes:
+
+| Endpoint | Authorization and behavior |
+| --- | --- |
+| `GET /api/v1/github/installations/new` | Session; redirect to the GitHub App installation UI, where GitHub selects an organization or personal account |
+| `GET /api/v1/github/installations/setup` | Session + bound state; authenticate the returned installation, verify namespace ownership, link it, and import repositories |
+| `POST /api/v1/accounts/{accountId}/installations/refresh` | Fresh provider owner; reconcile installation and repository projections |
+| `POST /api/v1/projects` | Fresh provider owner + `Idempotency-Key`; create or return the single private project for an active linked repository |
+| `GET /api/v1/projects/{accountSlug}/{projectSlug}` | Current namespace access; return the authenticated project representation |
+| `GET /api/v1/projects/{projectId}/tokens` | Current namespace access; return metadata only, never a secret or digest |
+| `POST /api/v1/projects/{projectId}/tokens` | Fresh provider owner; create a named 40-character compatibility token and reveal its secret once |
+| `DELETE /api/v1/projects/{projectId}/tokens/{tokenId}` | Fresh provider owner; revoke immediately and idempotently |
+| `POST /api/v1/webhooks/github` | Valid GitHub signature only; ingest provider events idempotently without session authorization |
+
+E6 adds `POST /api/v1/builds/{buildId}/reviews` for reviewer/owner decisions. Successful replayable native mutations return the effective resource version. Repeating an `Idempotency-Key` for the same actor/route/body returns the original result; reusing it with a different body is a conflict. Token creation is the deliberate exception: the response secret is never recoverable or replayed. If that response is lost, an owner creates a replacement and revokes the ambiguous token visible in metadata.
 
 After E8 enables visibility, public projects allow unauthenticated metadata reads and cacheable asset delivery. Before E8 every project is enforced private even if the schema reserves a visibility field. Private reads require a session and return short-lived signed asset URLs. Public responses expose no installation tokens, upload credentials, private GitHub metadata beyond the documented representation, or internal object keys. Automation/API tokens beyond compatibility uploads are post-MVP.
 
@@ -890,13 +922,13 @@ List endpoints use stable opaque cursors. Responses include immutable IDs, times
 - Private by default.
 - Central authorization functions require `account_id`, actor, resource, and action.
 - PostgreSQL RLS plus account-scoped repositories/composite foreign keys protect request-path data. Integration tests attempt cross-tenant substitution on list filters, cursors, point reads, nested resources, mutations, signed-URL issuance, and background-job inputs.
-- Compatibility project upload tokens are 40-character high-entropy values, shown once, stored hashed, scoped to upload/finalize, and revocable.
+- Compatibility project upload tokens are 40-character high-entropy values, shown once, stored only as a short lookup prefix plus HMAC-SHA-256 digest under a Secrets Manager key, scoped to upload/finalize, and revocable.
 - Web sessions use secure, HTTP-only, same-site cookies and standard OAuth state/PKCE protections.
 - Mutating browser requests require CSRF protection where cookie authentication applies.
 - GitHub webhook signatures and event delivery IDs are mandatory.
 - Signed object operations expire quickly and never permit bucket listing.
 - Image decoders run in isolated workers with pixel/size/time/memory limits. Malformed input cannot execute in the API process.
-- Secrets and provider tokens are encrypted at rest; logs redact tokens, signed URLs, cookies, and webhook signatures.
+- GitHub App credentials and token-digest keys live in the approved secrets store. Temporary user and installation tokens are held only in process memory until discarded or expired; logs redact tokens, signed URLs, cookies, OAuth codes/state, private keys, and webhook signatures.
 - E8 public-project status is an audited setting change; no MVP route can enable it.
 
 ## Retention, garbage collection, and cost
@@ -1012,14 +1044,19 @@ credentials, Redis, RabbitMQ, or DynamoDB.
 
 - Cross-account resource-ID substitution on every route.
 - Cross-account list filters, cursors, nested relationships, background jobs, and RLS behavior under pooled transactions.
+- Provider contract coverage for organization owner/member/inactive access, matching and non-matching personal identities, provider failure, and stable external IDs.
+- Provider-derived authorization lease expiry, webhook invalidation, forced owner verification, and fail-closed provider errors.
 - Signed upload constraints and hash mismatch.
-- OAuth state/session/CSRF behavior.
+- OAuth state/PKCE, opaque session lifecycle, exact-origin/preflight mutation protection, and discarded temporary provider credentials.
 - GitHub webhook signature/replay/idempotency.
 - Public/private visibility transitions and cache invalidation.
 
 ### End-to-end tests
 
-- Create account/project, upload a baseline, upload an unchanged PR build, and observe success.
+- Sign in and install Glint for an organization, create the linked repository's single project/token, upload a baseline, upload an unchanged PR build, and observe success.
+- Verify that an organization member receives reviewer access but cannot create projects or tokens, and that a second organization cannot infer the first account's resources.
+- Install Glint for a personal account, create a project/token for a personal repository, and prove another provider identity cannot access that namespace.
+- Remove and restore repository/installation access, proving the same project and explicitly unrevoked tokens reconnect without duplicating tenant data.
 - Upload changed/add/remove screenshots, review them, approve, and observe GitHub Check success.
 - Merge, run the complete main build, promote baseline, and verify the next PR compares against it.
 - Run existing Shipfox Playwright and React UI Storybook producers against a deployed staging Glint instance.
@@ -1058,13 +1095,15 @@ Primary packages/apps: `api/accounts[-dto]`, `api/projects[-dto]`, `api/vcs/{cor
 
 Deliverables:
 
-- GitHub OAuth login.
-- Accounts, memberships, roles, repositories, and projects.
-- GitHub App installation flow and webhook verification/idempotency.
-- Private-only project creation; schema reserves visibility but E8 is the first route allowed to enable public access.
-- Scoped, hashed 40-character compatibility project upload tokens.
+- One GitHub App for OAuth login, organization or personal-account installation, repository discovery, and authenticated lifecycle webhooks.
+- Provider-neutral identities as independent Glint principals; provider namespaces are authoritative accounts, with no cross-provider or email-based linking.
+- Provider-derived access projections: organization owners map to `owner`, active members to `reviewer`, matching personal identities to sole `owner`, and `viewer` remains reserved.
+- `api-accounts` ownership of provider namespace, installation linkage, sessions, and fail-closed authorization leases; `api-projects` ownership of repository projections, projects, and tokens.
+- Private-only project creation with exactly one project per active repository; schema reserves visibility but E8 is the first route allowed to enable public access.
+- Multiple named, scoped, keyed-digest 40-character compatibility project upload tokens, with one-time non-replayable secret responses.
+- E1-only GitHub permissions: Organization Members read, Repository Metadata read, and required lifecycle webhooks. Pull Requests, Checks, Contents, push, and pull-request event capabilities land in their owning later epics.
 
-Exit: two test accounts cannot access each other's projects; an installed repository can create a project/token.
+Exit: organization and personal-account installations both work; two test accounts cannot access each other's projects; an installed repository can create its one project and a usable token; no manual account or membership mutation API exists.
 
 ### E2: Content-addressed object storage
 
@@ -1146,6 +1185,7 @@ Primary packages/apps: `api/vcs/github`, `api/builds[-dto]`, `shared/node/outbox
 
 Deliverables:
 
+- Installation-owner permission upgrade for Pull Requests read and Checks write, with explicit behavior for installations still on the E1 permission set; request no source Contents access unless separately justified.
 - Check create/update/outbox behavior.
 - PR/commit/build association from trusted GitHub data.
 - Summary counts and review details URL.
@@ -1271,7 +1311,7 @@ Suggested milestones:
 
 ## Dependencies
 
-- GitHub OAuth App and GitHub App registration.
+- Separate staging and production registrations for the single GitHub App used for user authorization and installation operations.
 - Published `@shipfox/react-ui` package and its React 19/Tailwind CSS setup.
 - Published Shipfox build/check/type/test wrappers selected in E0; no dependency on Shipfox-private workspace packages.
 - Pinned Argos JavaScript producer packages for compatibility tests.
