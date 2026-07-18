@@ -50,11 +50,11 @@ description = "Build and start the complete local Glint stack"
 run = "pnpm run local:start"
 
 [tasks."local:stop"]
-description = "Stop local Glint apps and services while preserving state"
+description = "Stop local dependency containers while preserving state"
 run = "pnpm run local:stop"
 
 [tasks."local:reset"]
-description = "Reset local Glint state and start a clean stack"
+description = "Delete local dependency state"
 run = "pnpm run local:reset"
 
 [tasks."local:test"]

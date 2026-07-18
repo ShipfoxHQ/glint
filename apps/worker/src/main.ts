@@ -9,7 +9,7 @@ import {
   loadObservabilityEnvironment,
   observabilityEnvironmentSecrets,
 } from '@glint/node-observability';
-import {createSqsJobQueue} from '@glint/node-queue';
+import {InMemoryJobQueue} from '@glint/node-queue';
 import {createWorkerApp} from './app.js';
 import {loadWorkerEnvironment} from './config.js';
 import {checkOdiffBinary} from './odiff.js';
@@ -23,8 +23,6 @@ const logger = await createGlintLogger({
     ...observabilityEnvironmentSecrets(observabilityEnvironment),
     workerEnvironment.GLINT_OBJECT_STORE_ACCESS_KEY_ID,
     workerEnvironment.GLINT_OBJECT_STORE_SECRET_ACCESS_KEY,
-    workerEnvironment.GLINT_QUEUE_ACCESS_KEY_ID,
-    workerEnvironment.GLINT_QUEUE_SECRET_ACCESS_KEY,
   ],
 });
 const database = await createPostgresDatabase({environment: databaseEnvironment, logger});
@@ -38,15 +36,7 @@ const blobStore = createS3BlobStore({
     secretAccessKey: workerEnvironment.GLINT_OBJECT_STORE_SECRET_ACCESS_KEY,
   },
 });
-const queue = createSqsJobQueue({
-  accessKeyId: workerEnvironment.GLINT_QUEUE_ACCESS_KEY_ID,
-  deadLetterQueueUrl: workerEnvironment.GLINT_QUEUE_DEAD_LETTER_URL,
-  endpoint: workerEnvironment.GLINT_QUEUE_ENDPOINT,
-  queueName: 'local-shared',
-  queueUrl: workerEnvironment.GLINT_QUEUE_URL,
-  region: workerEnvironment.GLINT_QUEUE_REGION,
-  secretAccessKey: workerEnvironment.GLINT_QUEUE_SECRET_ACCESS_KEY,
-});
+const queue = new InMemoryJobQueue();
 await checkOdiffBinary();
 const app = await createWorkerApp({
   blobStore,

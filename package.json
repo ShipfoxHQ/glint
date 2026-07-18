@@ -10,10 +10,10 @@
   "scripts": {
     "check:architecture": "shipfox-biome-check architecture templates dev",
     "depcruise:workspace": "node architecture/check-workspace-graph.mjs",
-    "local:reset": "node dev/local-stack.mjs reset",
-    "local:start": "node dev/local-stack.mjs start",
-    "local:stop": "node dev/local-stack.mjs stop",
-    "local:test": "node dev/local-stack.mjs test",
+    "local:reset": "sh dev/local-stack.sh reset",
+    "local:start": "sh dev/local-stack.sh start",
+    "local:stop": "sh dev/local-stack.sh stop",
+    "local:test": "sh dev/local-stack.sh test",
     "test:architecture": "node --test architecture/*.test.mjs"
   },
   "devDependencies": {

@@ -5,7 +5,7 @@ import {
   GetQueueAttributesCommand,
   ReceiveMessageCommand,
   SendMessageCommand,
-  SQSClient,
+  type SQSClient,
 } from '@aws-sdk/client-sqs';
 import {createQueueTelemetry} from './telemetry.js';
 import type {DeadLetter, Job, JobDelivery, JobQueue, QueueHealth, QueueTelemetry} from './types.js';
@@ -65,23 +65,6 @@ export interface SqsJobQueueOptions {
   readonly queueUrl: string;
   readonly telemetry?: QueueTelemetry;
   readonly waitTimeSeconds?: number;
-}
-
-export interface SqsJobQueueConnectionOptions extends Omit<SqsJobQueueOptions, 'client'> {
-  readonly accessKeyId: string;
-  readonly endpoint: string;
-  readonly region: string;
-  readonly secretAccessKey: string;
-}
-
-export function createSqsJobQueue(options: SqsJobQueueConnectionOptions): SqsJobQueue {
-  const {accessKeyId, endpoint, region, secretAccessKey, ...queueOptions} = options;
-  const client = new SQSClient({
-    credentials: {accessKeyId, secretAccessKey},
-    endpoint,
-    region,
-  });
-  return new SqsJobQueue({...queueOptions, client});
 }
 
 export class SqsJobQueue implements JobQueue {

@@ -23,33 +23,33 @@ pnpm as packages land.
 
 ## Local stack
 
-One command builds the four composition roots, starts PostgreSQL, MinIO, and an SQS-compatible
-ElasticMQ queue, creates the private local bucket, runs migrations once, and waits for the API,
-worker, and web readiness probes:
+One command builds the four composition roots, starts PostgreSQL and MinIO, creates the private
+local bucket, runs migrations once, and runs the API, worker, and web together in the foreground:
 
 ```sh
 mise run local:start
 ```
 
 No cloud credentials are required. The local defaults are web `3000`, API `3001`, worker health
-`3002`, PostgreSQL `5432`, MinIO `9000`, the MinIO console `9001`, and ElasticMQ `9324`. In
-Conductor, the command uses `CONDUCTOR_PORT` through `CONDUCTOR_PORT+6`, so multiple workspaces can
-run concurrently. The API and worker construct PostgreSQL, S3-compatible object-store, shared SQS,
-configuration, and observability adapters at their entrypoints. No domain behavior lives in an
-app.
+`3002`, PostgreSQL `5432`, MinIO `9000`, and the MinIO console `9001`. In Conductor, the command
+uses `CONDUCTOR_PORT` through `CONDUCTOR_PORT+5`, so multiple workspaces can run concurrently. The
+API and worker construct PostgreSQL, S3-compatible object-store, in-memory queue, configuration,
+and observability adapters at their entrypoints. No domain behavior lives in an app.
+Because E0 has no job producers or consumers, the local queue intentionally stays in-process. Add
+a shared local backend with the first cross-process job and an end-to-end delivery test.
 
 Use the lifecycle commands to exercise or clean up the environment:
 
 ```sh
 mise run local:test   # migrations plus API, worker, and web health/readiness
-mise run local:stop   # stop processes and containers, preserving dependency volumes
-mise run local:start  # restart against the preserved state
-mise run local:reset  # delete local volumes and start a clean stack
+mise run local:stop   # stop dependency containers, preserving their volumes
+mise run local:reset  # stop containers and delete local volumes
 ```
 
-Logs for the three long-running apps live under `.glint-local/`. Override individual ports with
-`GLINT_WEB_PORT`, `GLINT_API_PORT`, `GLINT_WORKER_PORT`, `GLINT_POSTGRES_PORT`,
-`GLINT_MINIO_PORT`, `GLINT_MINIO_CONSOLE_PORT`, and `GLINT_QUEUE_PORT` when needed.
+Stop the foreground apps with Ctrl-C or Conductor's Stop button, then use `local:stop` when the
+dependency containers are no longer needed. Override individual ports with `GLINT_WEB_PORT`,
+`GLINT_API_PORT`, `GLINT_WORKER_PORT`, `GLINT_POSTGRES_PORT`, `GLINT_MINIO_PORT`, and
+`GLINT_MINIO_CONSOLE_PORT` when needed.
 
 The root `compose.yml` also remains usable for dependency-only development. With PostgreSQL
 running, `mise run database:test` exercises the real transaction, migration, and outbox contracts.

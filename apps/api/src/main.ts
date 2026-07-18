@@ -9,7 +9,7 @@ import {
   loadObservabilityEnvironment,
   observabilityEnvironmentSecrets,
 } from '@glint/node-observability';
-import {createSqsJobQueue} from '@glint/node-queue';
+import {InMemoryJobQueue} from '@glint/node-queue';
 import {createApiApp} from './app.js';
 import {loadApiEnvironment} from './config.js';
 
@@ -22,8 +22,6 @@ const logger = await createGlintLogger({
     ...observabilityEnvironmentSecrets(observabilityEnvironment),
     apiEnvironment.GLINT_OBJECT_STORE_ACCESS_KEY_ID,
     apiEnvironment.GLINT_OBJECT_STORE_SECRET_ACCESS_KEY,
-    apiEnvironment.GLINT_QUEUE_ACCESS_KEY_ID,
-    apiEnvironment.GLINT_QUEUE_SECRET_ACCESS_KEY,
   ],
 });
 const database = await createPostgresDatabase({environment: databaseEnvironment, logger});
@@ -37,15 +35,7 @@ const blobStore = createS3BlobStore({
     secretAccessKey: apiEnvironment.GLINT_OBJECT_STORE_SECRET_ACCESS_KEY,
   },
 });
-const queue = createSqsJobQueue({
-  accessKeyId: apiEnvironment.GLINT_QUEUE_ACCESS_KEY_ID,
-  deadLetterQueueUrl: apiEnvironment.GLINT_QUEUE_DEAD_LETTER_URL,
-  endpoint: apiEnvironment.GLINT_QUEUE_ENDPOINT,
-  queueName: 'local-shared',
-  queueUrl: apiEnvironment.GLINT_QUEUE_URL,
-  region: apiEnvironment.GLINT_QUEUE_REGION,
-  secretAccessKey: apiEnvironment.GLINT_QUEUE_SECRET_ACCESS_KEY,
-});
+const queue = new InMemoryJobQueue();
 const app = await createApiApp({blobStore, database, queue, modules: []});
 
 async function shutdown(signal: string) {
