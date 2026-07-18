@@ -1,12 +1,36 @@
-export {InMemoryVcsProvider} from './in-memory.js';
+export {InMemoryVcsIdentityProvider, InMemoryVcsProvider} from './in-memory.js';
 export type {
+  VcsAccessLevel,
+  VcsAuthorizationResult,
   VcsBranch,
   VcsCheck,
   VcsCheckConclusion,
   VcsEvent,
+  VcsIdentity,
+  VcsIdentityProvider,
+  VcsInstallation,
+  VcsInstallationProvider,
+  VcsInstallationState,
+  VcsNamespace,
+  VcsNamespaceAccess,
+  VcsNamespaceAccessProvider,
+  VcsNamespaceKind,
+  VcsNamespaceState,
   VcsProvider,
+  VcsProviderErrorCode,
   VcsProviderHealth,
   VcsPullRequest,
   VcsRepository,
+  VcsRepositoryState,
+  VcsUserCredential,
+  VcsWebhookProvider,
 } from './types.js';
-export {InvalidWebhookError} from './types.js';
+export {
+  InvalidWebhookError,
+  VcsAccessRevocationError,
+  VcsMalformedResponseError,
+  VcsMissingInstallationError,
+  VcsProviderError,
+  VcsRateLimitError,
+  VcsTimeoutError,
+} from './types.js';
