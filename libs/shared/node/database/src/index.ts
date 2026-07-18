@@ -4,7 +4,6 @@ export {
   describeDatabaseEnvironment,
   loadDatabaseEnvironment,
 } from './config.js';
-export {InMemoryDatabase} from './in-memory.js';
 export {
   migrationTableName,
   type OrderedMigration,

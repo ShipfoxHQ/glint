@@ -1,8 +1,7 @@
 # Database foundation
 
-`@glint/node-database` owns the provider-neutral transaction contract, its in-memory test adapter,
-and the selected PostgreSQL 18 implementation built on the published Shipfox PostgreSQL and
-Drizzle packages.
+`@glint/node-database` owns the provider-neutral transaction contract and the selected PostgreSQL
+18 implementation built on the published Shipfox PostgreSQL and Drizzle packages.
 
 ## Runtime PostgreSQL
 

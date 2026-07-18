@@ -44,9 +44,9 @@ adapter; it never applies this migration.
 - Retries have bounded delays and move exhausted events to dead letter.
 - Health maps the database adapter's cached readiness without querying or waking PostgreSQL.
 
-The in-memory adapter implements the same delivery and dead-letter contract for core and feature
-tests and additionally exposes pending age from its local state. Concrete adapters should run
-`transactionalOutboxContractTests` from `@glint/node-outbox/contract-test-kit`.
+The PostgreSQL adapter runs `transactionalOutboxContractTests` from
+`@glint/node-outbox/contract-test-kit` so the provider-neutral delivery and dead-letter contract is
+verified against the durable implementation.
 
 ## Verification
 

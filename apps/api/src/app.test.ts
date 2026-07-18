@@ -1,13 +1,24 @@
-import {InMemoryDatabase} from '@glint/node-database';
+import type {Database} from '@glint/node-database';
 import {InMemoryBlobStore} from '@glint/node-object-store';
 import {InMemoryJobQueue} from '@glint/node-queue';
 import {describe, expect, it} from '@shipfox/vitest/vi';
 import {createApiApp} from './app.js';
 
+// The composition root only probes database readiness, so a ready health double keeps these
+// wiring tests provider-neutral. Database behavior itself is covered by the PostgreSQL contract
+// suites in @glint/node-database.
+function readyDatabase(): Database {
+  return {
+    health: () => Promise.resolve({status: 'ready', checkedAtMs: 0}),
+    transaction: () =>
+      Promise.reject(new Error('Composition-root tests do not execute database transactions.')),
+  };
+}
+
 describe('API composition root', () => {
   it('reports liveness and dependency-aware readiness', async () => {
     const app = await createApiApp({
-      database: new InMemoryDatabase(),
+      database: readyDatabase(),
       blobStore: new InMemoryBlobStore(),
       queue: new InMemoryJobQueue(),
     });
@@ -18,7 +29,7 @@ describe('API composition root', () => {
 
   it('starts only declared module routes', async () => {
     const app = await createApiApp({
-      database: new InMemoryDatabase(),
+      database: readyDatabase(),
       blobStore: new InMemoryBlobStore(),
       queue: new InMemoryJobQueue(),
       modules: [
