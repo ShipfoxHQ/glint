@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:18.4
+    network_mode: bridge
     environment:
       POSTGRES_USER: "glint"
       POSTGRES_PASSWORD: "local-glint"
@@ -17,37 +18,41 @@ services:
       timeout: 2s
       retries: 5
 
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    command: server /data --console-address :9001
-    environment:
-      MINIO_ROOT_USER: "local-glint"
-      MINIO_ROOT_PASSWORD: "local-glint-secret"
+  garage:
+    image: dxflrs/garage:v2.3.0
+    network_mode: bridge
     volumes:
-      - minio:/data
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+      - ./dev/garage/garage.toml:/etc/garage.toml:ro
     ports:
-      - 127.0.0.1:${GLINT_MINIO_PORT:-9000}:9000
-      - 127.0.0.1:${GLINT_MINIO_CONSOLE_PORT:-9001}:9001
+      # RPC/admin use ephemeral host ports in Conductor; only S3 needs a stable host port.
+      - 127.0.0.1:${GLINT_GARAGE_S3_PORT:-3900}:3900
+      - 127.0.0.1:${GLINT_GARAGE_RPC_PORT-3901}:3901
+      - 127.0.0.1:${GLINT_GARAGE_ADMIN_PORT-3903}:3903
     restart: unless-stopped
     healthcheck:
-      test: [CMD, mc, ready, local]
-      interval: 5s
+      test: [CMD, /garage, status]
+      interval: 3s
       timeout: 2s
       retries: 10
 
-  minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+  garage-init:
+    image: alpine:3.24
+    network_mode: bridge
     depends_on:
-      minio:
+      garage:
         condition: service_healthy
-    entrypoint:
-      - /bin/sh
-      - -ec
-      - |
-        mc alias set local http://minio:9000 local-glint local-glint-secret
-        mc mb --ignore-existing local/glint
+    links:
+      - garage
+    volumes:
+      - ./dev/garage/bootstrap.sh:/bootstrap.sh:ro
+    environment:
+      GARAGE_URL: http://garage:3903
+    entrypoint: [sh, -c, apk add --no-cache curl jq >/dev/null && /bootstrap.sh]
     restart: "no"
 
 volumes:
-  minio:
+  garage_meta:
+  garage_data:
   postgres:

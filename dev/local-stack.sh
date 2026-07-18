@@ -9,21 +9,23 @@ if [ -n "${CONDUCTOR_PORT:-}" ]; then
   : "${GLINT_WEB_PORT:=$((CONDUCTOR_PORT + 1))}"
   : "${GLINT_WORKER_PORT:=$((CONDUCTOR_PORT + 2))}"
   : "${GLINT_POSTGRES_PORT:=$((CONDUCTOR_PORT + 3))}"
-  : "${GLINT_MINIO_PORT:=$((CONDUCTOR_PORT + 4))}"
-  : "${GLINT_MINIO_CONSOLE_PORT:=$((CONDUCTOR_PORT + 5))}"
+  : "${GLINT_GARAGE_S3_PORT:=$((CONDUCTOR_PORT + 4))}"
+  GLINT_GARAGE_RPC_PORT=''
+  GLINT_GARAGE_ADMIN_PORT=''
 fi
 
 export GLINT_API_PORT="${GLINT_API_PORT:-3001}"
 export GLINT_WEB_PORT="${GLINT_WEB_PORT:-3000}"
 export GLINT_WORKER_PORT="${GLINT_WORKER_PORT:-3002}"
 export GLINT_POSTGRES_PORT="${GLINT_POSTGRES_PORT:-5432}"
-export GLINT_MINIO_PORT="${GLINT_MINIO_PORT:-9000}"
-export GLINT_MINIO_CONSOLE_PORT="${GLINT_MINIO_CONSOLE_PORT:-9001}"
-export GLINT_OBJECT_STORE_ACCESS_KEY_ID="local-glint"
+export GLINT_GARAGE_S3_PORT="${GLINT_GARAGE_S3_PORT:-3900}"
+export GLINT_GARAGE_RPC_PORT="${GLINT_GARAGE_RPC_PORT-3901}"
+export GLINT_GARAGE_ADMIN_PORT="${GLINT_GARAGE_ADMIN_PORT-3903}"
+export GLINT_OBJECT_STORE_ACCESS_KEY_ID="GK000000000000000000000000"
 export GLINT_OBJECT_STORE_BUCKET="glint"
-export GLINT_OBJECT_STORE_ENDPOINT="http://127.0.0.1:$GLINT_MINIO_PORT"
-export GLINT_OBJECT_STORE_REGION="local"
-export GLINT_OBJECT_STORE_SECRET_ACCESS_KEY="local-glint-secret"
+export GLINT_OBJECT_STORE_ENDPOINT="http://127.0.0.1:$GLINT_GARAGE_S3_PORT"
+export GLINT_OBJECT_STORE_REGION="garage"
+export GLINT_OBJECT_STORE_SECRET_ACCESS_KEY="0000000000000000000000000000000000000000000000000000000000000000"
 export GLINT_WEB_API_URL="http://127.0.0.1:$GLINT_API_PORT"
 export POSTGRES_HOST="127.0.0.1"
 export POSTGRES_PORT="$GLINT_POSTGRES_PORT"
@@ -46,8 +48,8 @@ case "${1:-}" in
       --filter=@glint/app-web \
       --filter=@glint/app-worker \
       --filter=@glint/app-migrate
-    docker compose up -d --wait postgres minio
-    docker compose run --rm minio-init
+    docker compose up -d --wait postgres garage
+    docker compose run --rm garage-init
     pnpm --filter @glint/app-migrate start
     exec pnpm --recursive --parallel --stream \
       --filter @glint/app-api \

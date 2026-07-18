@@ -1,7 +1,12 @@
 "$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
 
 [scripts]
-archive = "docker compose down"
+setup = """
+mise trust
+mise install
+mise run bootstrap
+"""
+archive = "mise run local:reset"
 run_mode = "concurrent"
 
 [scripts.run.dev]

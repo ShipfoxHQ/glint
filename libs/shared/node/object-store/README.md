@@ -2,7 +2,7 @@
 
 `@glint/node-object-store` owns immutable blob reads, writes, metadata, deletion, constrained signed
 multipart uploads, signed reads, and readiness. The `BlobStore` contract intentionally has no
-listing operation and does not expose bucket, credential, AWS, R2, or MinIO types.
+listing operation and does not expose bucket, credential, or provider SDK types.
 
 The package includes two runtime adapters:
 

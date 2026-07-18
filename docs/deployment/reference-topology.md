@@ -49,7 +49,7 @@ Lambda to scale to zero. Health checks do not query the database.
 | API Gateway and Lambda | Fastify listening directly on Node.js | Same routes, validation, authentication, and response mapping |
 | Vercel | Vite development server | Same client entry and runtime API configuration |
 | Neon | PostgreSQL 18 container | Same migrations, row-level security, transactions, sessions, and outbox tests |
-| Amazon S3 | MinIO container | Same immutable keys and signed POST/read contract |
+| Amazon S3 | Garage container | Same immutable keys and signed POST/read contract |
 | Amazon SQS | In-process durable fake | Same job identities, leases, attempts, acknowledgement, redelivery, and dead-letter behavior |
 | Lambda worker | Lambda image through the Runtime Interface Emulator | Same Node.js and ODiff versions, handler, limits, and corpus |
 
