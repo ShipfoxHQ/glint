@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:18.4
+    network_mode: bridge
     environment:
       POSTGRES_USER: "glint"
       POSTGRES_PASSWORD: "local-glint"
@@ -17,5 +18,41 @@ services:
       timeout: 2s
       retries: 5
 
+  garage:
+    image: dxflrs/garage:v2.3.0
+    network_mode: bridge
+    volumes:
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+      - ./dev/garage/garage.toml:/etc/garage.toml:ro
+    ports:
+      # RPC/admin use ephemeral host ports in Conductor; only S3 needs a stable host port.
+      - 127.0.0.1:${GLINT_GARAGE_S3_PORT:-3900}:3900
+      - 127.0.0.1:${GLINT_GARAGE_RPC_PORT-3901}:3901
+      - 127.0.0.1:${GLINT_GARAGE_ADMIN_PORT-3903}:3903
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, /garage, status]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  garage-init:
+    image: alpine:3.24
+    network_mode: bridge
+    depends_on:
+      garage:
+        condition: service_healthy
+    links:
+      - garage
+    volumes:
+      - ./dev/garage/bootstrap.sh:/bootstrap.sh:ro
+    environment:
+      GARAGE_URL: http://garage:3903
+    entrypoint: [sh, -c, apk add --no-cache curl jq >/dev/null && /bootstrap.sh]
+    restart: "no"
+
 volumes:
+  garage_meta:
+  garage_data:
   postgres:

@@ -432,7 +432,7 @@ flowchart LR
 | Diff worker | Verify inputs, compare pixels, produce masks/regions | User auth, baseline selection, GitHub updates |
 | GitHub adapter | OAuth, App tokens, webhooks, Checks | Core build-policy decisions |
 
-Core interfaces should include `BlobStore`, `JobQueue`, `DiffEngine`, and `VcsProvider`. They permit S3/R2/MinIO, SQS/Cloudflare Queues/local adapters, ODiff/Pixelmatch, and GitHub/GitLab without leaking provider concepts into build logic.
+Core interfaces should include `BlobStore`, `JobQueue`, `DiffEngine`, and `VcsProvider`. They permit S3/R2/Garage, SQS/Cloudflare Queues/local adapters, ODiff/Pixelmatch, and GitHub/GitLab without leaking provider concepts into build logic.
 
 ## Ingestion protocol
 
@@ -956,7 +956,7 @@ Versioned GitHub Releases distribute attested API and migration ZIPs, while GitH
 Registry distributes the attested worker image. Private deployments copy those verified artifacts
 into versioned S3 storage and same-region ECR before promoting Lambda and Vercel releases.
 
-Local development uses PostgreSQL, MinIO, an in-process queue, Fastify listening directly on
+Local development uses PostgreSQL, Garage, an in-process queue, Fastify listening directly on
 Node.js, and the same worker image through Lambda's local emulator. It does not require cloud
 credentials, Redis, RabbitMQ, or DynamoDB.
 

@@ -134,7 +134,10 @@ const createDependencyCruiserConfig = ({
         'Client and browser packages may consume DTO and client public surfaces, never backend implementations or Node packages.',
       severity: 'error',
       from: {path: '^(?:src|test)(?:/|$)'},
-      to: {path: [...apiPaths, ...workspaceArea(['libs/shared/node', 'apps'])], pathNot: DTO_PATH},
+      to: {
+        path: [...apiPaths, ...workspaceArea(['libs/shared/node', 'apps'])],
+        pathNot: [DTO_PATH, NODE_MODULES_PATH],
+      },
     });
   }
 
@@ -212,7 +215,7 @@ const createDependencyCruiserConfig = ({
           ...allWorkspacePaths.map((prefix) => `${prefix}.*${SOURCE_PATH}`),
           '^@glint/.+/(?:src|dist|#(?:core|db|presentation|jobs)|core|db|presentation|jobs)(?:/|$)',
         ],
-        pathNot: PUBLIC_INDEX,
+        pathNot: [...PUBLIC_INDEX, NODE_MODULES_PATH],
       },
     });
   }

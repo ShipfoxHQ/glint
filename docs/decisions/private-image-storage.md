@@ -20,7 +20,7 @@ Use a private Amazon S3 Standard bucket in Frankfurt for source images and diff 
 - Do not grant bucket listing to application roles.
 - Enable production bucket versioning and retain deleted or non-current versions for seven days.
 - Let database-owned retention roots decide when current objects become eligible for deletion.
-- Use MinIO locally through the same storage interface.
+- Use Garage locally through the same storage interface.
 
 The recorded producer fixture remains the contract input for the future S3 adapter. That adapter
 will own signed-request shape tests. The infrastructure repository will smoke-test IAM, CORS, and

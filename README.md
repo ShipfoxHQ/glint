@@ -21,19 +21,39 @@ The individual `build`, `check`, `type`, `type:emit`, `test`, and `depcruise` ta
 available through `mise run <task>`. Package scripts remain independently runnable through
 pnpm as packages land.
 
-## Local services
+## Local stack
 
-The root `compose.yml` is the local application stack. Start it with:
+One command builds the four composition roots, starts PostgreSQL and Garage, creates the private
+local bucket, runs migrations once, and runs the API, worker, and web together in the foreground:
 
 ```sh
-docker compose up -d --wait
+mise run local:start
 ```
 
-It currently provides PostgreSQL 18 with persistent `glint` and isolated `glint_test` databases;
-later composition-root issues add their services to the same file. Set `GLINT_POSTGRES_PORT` when
-another workspace already owns port 5432 and expose the same value to processes as `POSTGRES_PORT`.
-With PostgreSQL running, `mise run database:test` exercises the real transaction, migration, and
-outbox contracts.
+No cloud credentials are required. The local defaults are web `3000`, API `3001`, worker health
+`3002`, PostgreSQL `5432`, and Garage S3 `3900`. In Conductor, the command uses `CONDUCTOR_PORT`
+through `CONDUCTOR_PORT+4`, so multiple workspaces can run concurrently. Garage's internal RPC and
+admin ports receive ephemeral host bindings. The
+API and worker construct PostgreSQL, S3-compatible object-store, in-memory queue, configuration,
+and observability adapters at their entrypoints. No domain behavior lives in an app.
+Because E0 has no job producers or consumers, the local queue intentionally stays in-process. Add
+a shared local backend with the first cross-process job and an end-to-end delivery test.
+
+Use the lifecycle commands to exercise or clean up the environment:
+
+```sh
+mise run local:test   # migrations plus API, worker, and web health/readiness
+mise run local:stop   # stop dependency containers, preserving their volumes
+mise run local:reset  # stop containers and delete local volumes
+```
+
+Stop the foreground apps with Ctrl-C or Conductor's Stop button, then use `local:stop` when the
+dependency containers are no longer needed. Override individual ports with `GLINT_WEB_PORT`,
+`GLINT_API_PORT`, `GLINT_WORKER_PORT`, `GLINT_POSTGRES_PORT`, and `GLINT_GARAGE_S3_PORT` when
+needed.
+
+The root `compose.yml` also remains usable for dependency-only development. With PostgreSQL
+running, `mise run database:test` exercises the real transaction, migration, and outbox contracts.
 
 ## Package architecture
 

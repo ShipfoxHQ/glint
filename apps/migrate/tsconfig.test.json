@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": { "rootDir": "." },
+  "include": ["src", "vitest.config.ts"],
+  "exclude": []
+}

@@ -1,0 +1,37 @@
+{
+  "name": "@glint/app-migrate",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "imports": {
+    "#*": "./src/*"
+  },
+  "scripts": {
+    "build": "swc",
+    "check": "shipfox-biome-check",
+    "depcruise": "shipfox-depcruise",
+    "start": "node --enable-source-maps dist/main.js",
+    "test": "NODE_ENV=production shipfox-vitest-run",
+    "type": "shipfox-tsc-check",
+    "type:emit": "shipfox-tsc-emit"
+  },
+  "dependencies": {
+    "@glint/node-database": "workspace:*",
+    "@glint/node-module": "workspace:*",
+    "@glint/node-observability": "workspace:*",
+    "@glint/node-outbox": "workspace:*"
+  },
+  "devDependencies": {
+    "@shipfox/biome": "1.8.1",
+    "@shipfox/depcruise": "1.0.1",
+    "@shipfox/swc": "1.2.5",
+    "@shipfox/ts-config": "1.3.7",
+    "@shipfox/typescript": "1.1.5",
+    "@shipfox/vitest": "1.2.1",
+    "@types/node": "24.13.3"
+  },
+  "glint": {
+    "packageType": "app",
+    "environment": "node"
+  }
+}
