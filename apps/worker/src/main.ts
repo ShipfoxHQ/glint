@@ -37,12 +37,13 @@ const blobStore = createS3BlobStore({
   },
 });
 const queue = new InMemoryJobQueue();
-await checkOdiffBinary();
+const odiffReadiness = checkOdiffBinary();
+await odiffReadiness;
 const app = await createWorkerApp({
   blobStore,
   database,
   modules: [],
-  odiffReady: checkOdiffBinary,
+  odiffReady: () => odiffReadiness,
   queue,
 });
 
@@ -67,8 +68,16 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 
-await app.listen({
-  host: workerEnvironment.GLINT_WORKER_HOST,
-  port: workerEnvironment.GLINT_WORKER_PORT,
-});
-logger.info('Worker process is ready.', {port: workerEnvironment.GLINT_WORKER_PORT});
+try {
+  await app.listen({
+    host: workerEnvironment.GLINT_WORKER_HOST,
+    port: workerEnvironment.GLINT_WORKER_PORT,
+  });
+  logger.info('Worker process is ready.', {port: workerEnvironment.GLINT_WORKER_PORT});
+} catch (error) {
+  logger.error('Worker process failed to start.', {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  await Promise.allSettled([app.close(), database.close()]);
+  process.exit(1);
+}

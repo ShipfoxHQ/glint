@@ -13,4 +13,16 @@ describe('web readiness', () => {
       status: 'not_ready',
     });
   });
+
+  it('fails closed when the API does not respond before the deadline', async () => {
+    const request = vi.fn<typeof fetch>().mockImplementation((_url, init) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), {once: true});
+      });
+    });
+
+    await expect(webReadiness('http://api.test', request, 1)).resolves.toEqual({
+      status: 'not_ready',
+    });
+  });
 });

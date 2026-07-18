@@ -59,5 +59,13 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 
-await app.listen({host: apiEnvironment.GLINT_API_HOST, port: apiEnvironment.GLINT_API_PORT});
-logger.info('API process is ready.', {port: apiEnvironment.GLINT_API_PORT});
+try {
+  await app.listen({host: apiEnvironment.GLINT_API_HOST, port: apiEnvironment.GLINT_API_PORT});
+  logger.info('API process is ready.', {port: apiEnvironment.GLINT_API_PORT});
+} catch (error) {
+  logger.error('API process failed to start.', {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  await Promise.allSettled([app.close(), database.close()]);
+  process.exit(1);
+}

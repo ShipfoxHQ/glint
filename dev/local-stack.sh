@@ -30,7 +30,7 @@ export POSTGRES_PORT="$GLINT_POSTGRES_PORT"
 
 wait_for() {
   attempts=0
-  until curl --fail --silent --show-error "$1" >/dev/null; do
+  until curl --fail --silent --show-error --max-time 5 "$1" >/dev/null; do
     attempts=$((attempts + 1))
     if [ "$attempts" -ge 40 ]; then
       return 1
