@@ -13,6 +13,9 @@ const foundationDirectory = fileURLToPath(
 const dependentDirectory = fileURLToPath(
   new URL('./test-fixtures/migrations/dependent', import.meta.url),
 );
+const brokenDirectory = fileURLToPath(
+  new URL('./test-fixtures/migrations/broken', import.meta.url),
+);
 
 describe('ordered migration model', () => {
   it('creates stable, isolated PostgreSQL identifiers', () => {
@@ -97,5 +100,12 @@ describe.runIf(integrationEnabled)('ordered PostgreSQL 18 migrations', () => {
       migrationTableName('dependent'),
       migrationTableName('foundation'),
     ]);
+  });
+
+  it('rejects malformed migrations before CI can accept them', async () => {
+    if (!database) throw new Error('PostgreSQL migration fixture was not initialized.');
+    await expect(
+      runOrderedMigrations(database.drizzle, [{name: 'broken', directory: brokenDirectory}]),
+    ).rejects.toThrow();
   });
 });

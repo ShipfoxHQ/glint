@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: shipfox
+  # Pull requests restore trusted main artifacts but cannot overwrite remote cache.
+  # TURBO_TOKEN is optional: Turbo falls back to the local cache when it is absent.
+  TURBO_CACHE: ${{ github.ref == 'refs/heads/main' && 'local:rw,remote:rw' || 'local:rw,remote:r' }}
+
+jobs:
+  verify:
+    name: Verify repository gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SHIPFOX_VITEST_MAX_WORKERS: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Set up mise
+        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4
+
+      - name: Set up pnpm
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Start PostgreSQL and Garage
+        run: |
+          docker compose up --wait -d postgres garage
+          docker compose run --rm garage-init
+
+      - name: Check architecture policy
+        run: |
+          pnpm run check:architecture
+          pnpm run depcruise:workspace
+          pnpm run test:architecture
+
+      - name: Check workspace packages
+        run: turbo check type type:emit build depcruise
+
+      - name: Check package exports
+        run: pnpm run export-check
+
+      - name: Run unit and PostgreSQL tests
+        env:
+          GLINT_POSTGRES_TEST: "1"
+        run: turbo test
+
+      - name: Run migrations against fresh PostgreSQL
+        run: |
+          pnpm --filter @glint/app-migrate start
+          docker compose exec -T postgres psql -U glint -d glint -v ON_ERROR_STOP=1 \
+            -c "SELECT 1 / count(*) FROM pg_tables WHERE schemaname = 'drizzle' AND tablename LIKE 'glint_%_migrations';"
+
+      - name: Reject stale generated artifacts
+        run: git diff --exit-code
+
+  build-worker-image:
+    name: Build worker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Set up mise
+        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4
+
+      - name: Set up pnpm
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+
+      - name: Build worker image without publishing
+        run: |
+          turbo image --filter @glint/app-worker
+          test -f apps/worker/out/full/apps/worker/package.json
