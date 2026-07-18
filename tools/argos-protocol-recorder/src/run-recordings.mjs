@@ -1,10 +1,10 @@
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {mkdtemp, mkdir, readFile, readdir, rename, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {basename, dirname, join, resolve} from 'node:path';
-import {deflateSync} from 'node:zlib';
 import {fileURLToPath} from 'node:url';
+import {deflateSync} from 'node:zlib';
 import ArgosPlaywrightReporter from '@argos-ci/playwright/reporter';
 import {argosVitestPlugin} from '@argos-ci/storybook/vitest-plugin';
 import {createProtocolRecorder, recorderToken} from './recorder.mjs';
@@ -84,6 +84,18 @@ function scrubOutput(output, baseUrl, temporaryRoot) {
     .trim();
 }
 
+function isGitHubCiEnvironment(name) {
+  return name === 'CI' || name.startsWith('GITHUB_');
+}
+
+function githubCiEnvironmentClears() {
+  return Object.fromEntries(
+    Object.keys(process.env)
+      .filter(isGitHubCiEnvironment)
+      .map((name) => [name, undefined]),
+  );
+}
+
 async function runCommand(command, args, options) {
   const child = spawn(command, args, {
     cwd: options.cwd,
@@ -118,7 +130,9 @@ async function runCommand(command, args, options) {
 
 function commonEnvironment(baseUrl) {
   return {
-    ...process.env,
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => !isGitHubCiEnvironment(name)),
+    ),
     ARGOS_API_BASE_URL: baseUrl,
     ARGOS_BRANCH: 'recording-branch',
     ARGOS_COMMIT: '1111111111111111111111111111111111111111',
@@ -144,7 +158,8 @@ async function withEnvironment(environment, callback) {
   const previous = new Map();
   for (const [key, value] of Object.entries(environment)) {
     previous.set(key, process.env[key]);
-    process.env[key] = value;
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
   }
   try {
     return await callback();
@@ -172,12 +187,14 @@ async function runPlaywrightReporter(context) {
       ],
     },
   );
-  const result = await withEnvironment(commonEnvironment(context.baseUrl), () =>
-    reporter.onEnd({
-      status: 'passed',
-      startTime: new Date('2026-07-11T00:00:00.000Z'),
-      duration: 42,
-    }),
+  const result = await withEnvironment(
+    {...commonEnvironment(context.baseUrl), ...githubCiEnvironmentClears()},
+    () =>
+      reporter.onEnd({
+        status: 'passed',
+        startTime: new Date('2026-07-11T00:00:00.000Z'),
+        duration: 42,
+      }),
   );
   if (result?.status === 'failed') throw new Error('Playwright reporter upload failed');
   return {exitCode: 0, stdout: 'Playwright reporter completed', stderr: ''};
@@ -196,7 +213,10 @@ async function runStorybookReporter(context) {
   plugin.configureVitest({vitest, project});
   const reporter = vitest.config.reporters[0];
   reporter.onInit(vitest);
-  await withEnvironment(commonEnvironment(context.baseUrl), () => reporter.onFinished());
+  await withEnvironment(
+    {...commonEnvironment(context.baseUrl), ...githubCiEnvironmentClears()},
+    () => reporter.onFinished(),
+  );
   return {exitCode: 0, stdout: 'Storybook Vitest reporter completed', stderr: ''};
 }
 

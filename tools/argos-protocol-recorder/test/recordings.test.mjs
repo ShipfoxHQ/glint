@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {mkdir, mkdtemp, readFile, readdir, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readdir, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import test from 'node:test';
@@ -28,6 +28,22 @@ async function recording(name) {
   return JSON.parse(await readFile(join(recordingsRoot, `${name}.json`), 'utf8'));
 }
 
+async function withEnvironment(environment, callback) {
+  const previous = new Map();
+  for (const [name, value] of Object.entries(environment)) {
+    previous.set(name, process.env[name]);
+    process.env[name] = value;
+  }
+  try {
+    return await callback();
+  } finally {
+    for (const [name, value] of previous) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+}
+
 test('recordings cover the complete GLI-3 producer matrix', async () => {
   for (const name of recordingNames) assert.equal((await recording(name)).scenario, name);
   assert.equal((await recording('cli-changed')).producer.version, '5.0.5');
@@ -37,6 +53,24 @@ test('recordings cover the complete GLI-3 producer matrix', async () => {
 
 test('pinned CLI, Playwright, and Storybook producers replay the golden contract', async () => {
   assert.deepEqual(await replayRecordings(), recordingNames.map((name) => `${name}.json`).sort());
+});
+
+test('producer recordings ignore GitHub Actions metadata', async () => {
+  await withEnvironment(
+    {
+      CI: 'true',
+      GITHUB_ACTIONS: 'true',
+      GITHUB_REF: 'refs/pull/1/merge',
+      GITHUB_REPOSITORY: 'ShipfoxHQ/glint',
+      GITHUB_SHA: '2222222222222222222222222222222222222222',
+    },
+    async () => {
+      assert.deepEqual(
+        await replayRecordings(),
+        recordingNames.map((name) => `${name}.json`).sort(),
+      );
+    },
+  );
 });
 
 test('recordings contain no bearer token, live signed URL, or screenshot bytes', async () => {
