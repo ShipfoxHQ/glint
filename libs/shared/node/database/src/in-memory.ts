@@ -109,7 +109,13 @@ export class InMemoryDatabase implements Database {
   }
 
   #storageKey(key: string, transaction?: InMemoryTransaction): string {
-    return `${transaction?.options.tenant?.accountId ?? 'global'}\u0000${key}`;
+    const options = transaction?.options;
+    const namespace = options?.identity
+      ? `identity:${options.identity.identityId}`
+      : options?.tenant
+        ? `tenant:${options.tenant.accountId}`
+        : 'global';
+    return `${namespace}\u0000${key}`;
   }
 
   async #withTimeout<T>(operation: Promise<T>, timeoutMs?: number): Promise<T> {
