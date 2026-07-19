@@ -33,7 +33,16 @@ const workspacePaths = (workspaceRoot, currentDirectory, paths) =>
 const DTO_PATH = '(?:^|/)[^/]+-dto/(?:src|dist)(?:/|$)';
 const NODE_MODULES_PATH = '(?:^|/)node_modules(?:/|$)';
 const SOURCE_PATH = '(?:^|/)(?:src|dist)/';
-const PUBLIC_INDEX = ['^src/index\\.', '^dist/index\\.', '/src/index\\.', '/dist/index\\.'];
+const PUBLIC_INDEX = [
+  '^src/index\\.',
+  '^dist/index\\.',
+  '/src/index\\.',
+  '/dist/index\\.',
+  '^src/contract-test-kit\\.',
+  '^dist/contract-test-kit\\.',
+  '/src/contract-test-kit\\.',
+  '/dist/contract-test-kit\\.',
+];
 const CROSS_PACKAGE_SOURCE_PATHS = Array.from({length: 8}, (_, upIndex) =>
   Array.from(
     {length: 8},
