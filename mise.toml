@@ -43,7 +43,7 @@ run = "pnpm run depcruise:workspace && turbo depcruise"
 [tasks."database:test"]
 description = "Run reusable database and outbox contracts against PostgreSQL 18"
 env = { GLINT_POSTGRES_TEST = "1" }
-run = "turbo test --filter=@glint/node-database --filter=@glint/node-outbox --filter=@glint/api-accounts --force"
+run = "turbo test --filter=@glint/node-database --filter=@glint/node-outbox --filter=@glint/api-accounts --filter=@glint/api-projects --filter=@glint/app-migrate --force"
 
 [tasks."local:start"]
 description = "Build and start the complete local Glint stack"

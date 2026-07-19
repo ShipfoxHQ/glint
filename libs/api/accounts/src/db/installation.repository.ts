@@ -12,6 +12,15 @@ export class PostgresInstallationRepository implements InstallationRepository {
     input: Omit<Installation, 'id' | 'suspendedAt' | 'removedAt'>,
   ): Promise<Installation> {
     return this.database.useTransaction(transaction, async (tx) => {
+      // Both unique identities can race: provider installation and current account/provider.
+      // Acquire their transaction-scoped locks in stable order before evaluating either index.
+      const lockKeys = [
+        `accounts-installation:account:${input.provider}:${input.accountId}`,
+        `accounts-installation:provider:${input.provider}:${input.providerInstallationId}`,
+      ].sort();
+      for (const lockKey of lockKeys) {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
+      }
       const result = await tx.execute<Record<string, unknown>>(
         sql`WITH existing AS MATERIALIZED (
             SELECT account_id FROM accounts_installations

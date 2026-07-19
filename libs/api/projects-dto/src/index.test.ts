@@ -1,5 +1,9 @@
 import {describe, expect, it} from '@shipfox/vitest/vi';
-import {projectRepresentationSchema, repositoryRepresentationSchema} from './index.js';
+import {
+  projectErrorCodeSchema,
+  projectRepresentationSchema,
+  repositoryRepresentationSchema,
+} from './index.js';
 
 describe('project DTO contracts', () => {
   it('keeps projects private in the E1 representation', () => {
@@ -35,5 +39,10 @@ describe('project DTO contracts', () => {
         },
       }),
     ).toThrow();
+  });
+
+  it('defines only the public project error codes', () => {
+    expect(projectErrorCodeSchema.parse('IDEMPOTENCY_CONFLICT')).toBe('IDEMPOTENCY_CONFLICT');
+    expect(() => projectErrorCodeSchema.parse('PROJECT_CONFLICT')).toThrow();
   });
 });

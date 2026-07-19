@@ -12,6 +12,7 @@ export {
 export {
   type CreatePostgresDatabaseOptions,
   createPostgresDatabase,
+  databaseErrorCode,
   PostgresDatabase,
   type PostgresDrizzleDatabase,
   type PostgresDrizzleTransaction,

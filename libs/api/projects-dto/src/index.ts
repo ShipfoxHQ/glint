@@ -35,5 +35,12 @@ export const projectRepresentationSchema = z.object({
   visibility: z.literal('private'),
 });
 
+export const projectErrorCodeSchema = z.enum([
+  'IDEMPOTENCY_CONFLICT',
+  'PROJECT_SUSPENDED',
+  'TOKEN_SECRET_ALREADY_LOST',
+]);
+
 export type RepositoryRepresentation = z.infer<typeof repositoryRepresentationSchema>;
 export type ProjectRepresentation = z.infer<typeof projectRepresentationSchema>;
+export type ProjectErrorCode = z.infer<typeof projectErrorCodeSchema>;

@@ -1,28 +1,48 @@
 {
-  "name": "@glint/app-migrate",
+  "name": "@glint/api-projects",
   "private": true,
   "type": "module",
-  "main": "dist/main.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "imports": {
     "#*": "./src/*"
+  },
+  "exports": {
+    ".": {
+      "development": {
+        "types": "./src/index.ts",
+        "default": "./src/index.ts"
+      },
+      "default": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./migration": {
+      "development": {
+        "types": "./src/migration.ts",
+        "default": "./src/migration.ts"
+      },
+      "default": {
+        "types": "./dist/migration.d.ts",
+        "default": "./dist/migration.js"
+      }
+    }
   },
   "scripts": {
     "build": "swc",
     "check": "shipfox-biome-check",
     "depcruise": "shipfox-depcruise",
-    "start": "node --enable-source-maps dist/main.js",
     "test": "NODE_ENV=production shipfox-vitest-run",
     "test:postgres": "NODE_ENV=production GLINT_POSTGRES_TEST=1 shipfox-vitest-run",
     "type": "shipfox-tsc-check",
     "type:emit": "shipfox-tsc-emit"
   },
   "dependencies": {
-    "@glint/api-accounts": "workspace:*",
-    "@glint/api-projects": "workspace:*",
+    "@glint/api-projects-dto": "workspace:*",
     "@glint/node-database": "workspace:*",
     "@glint/node-module": "workspace:*",
-    "@glint/node-observability": "workspace:*",
-    "@glint/node-outbox": "workspace:*"
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "@shipfox/biome": "1.8.1",
@@ -35,7 +55,7 @@
     "@types/node": "24.13.3"
   },
   "glint": {
-    "packageType": "app",
+    "packageType": "backend-feature",
     "environment": "node"
   }
 }
