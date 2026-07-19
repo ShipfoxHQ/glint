@@ -16,6 +16,7 @@
     "type:emit": "shipfox-tsc-emit"
   },
   "dependencies": {
+    "@glint/api-accounts": "workspace:*",
     "@glint/node-database": "workspace:*",
     "@glint/node-module": "workspace:*",
     "@glint/node-observability": "workspace:*",

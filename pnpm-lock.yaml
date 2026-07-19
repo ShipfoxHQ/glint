@@ -66,6 +66,9 @@ importers:
 
   apps/migrate:
     dependencies:
+      '@glint/api-accounts':
+        specifier: workspace:*
+        version: link:../../libs/api/accounts
       '@glint/node-database':
         specifier: workspace:*
         version: link:../../libs/shared/node/database
@@ -183,6 +186,46 @@ importers:
       '@shipfox/docker':
         specifier: 0.1.1
         version: 0.1.1
+      '@shipfox/swc':
+        specifier: 1.2.5
+        version: 1.2.5(@swc/helpers@0.5.23)
+      '@shipfox/ts-config':
+        specifier: 1.3.7
+        version: 1.3.7
+      '@shipfox/typescript':
+        specifier: 1.1.5
+        version: 1.1.5
+      '@shipfox/vitest':
+        specifier: 1.2.1
+        version: 1.2.1(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@8.1.4(@types/node@24.13.3)(jiti@2.7.0)(yaml@2.9.0))
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+
+  libs/api/accounts:
+    dependencies:
+      '@glint/api-accounts-dto':
+        specifier: workspace:*
+        version: link:../accounts-dto
+      '@glint/node-database':
+        specifier: workspace:*
+        version: link:../../shared/node/database
+      '@glint/node-module':
+        specifier: workspace:*
+        version: link:../../shared/node/module
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.22.0)
+    devDependencies:
+      '@shipfox/biome':
+        specifier: 1.8.1
+        version: 1.8.1
+      '@shipfox/depcruise':
+        specifier: 1.0.1
+        version: 1.0.1
+      '@shipfox/node-postgres':
+        specifier: 0.4.0
+        version: 0.4.0
       '@shipfox/swc':
         specifier: 1.2.5
         version: 1.2.5(@swc/helpers@0.5.23)

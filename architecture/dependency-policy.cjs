@@ -33,15 +33,13 @@ const workspacePaths = (workspaceRoot, currentDirectory, paths) =>
 const DTO_PATH = '(?:^|/)[^/]+-dto/(?:src|dist)(?:/|$)';
 const NODE_MODULES_PATH = '(?:^|/)node_modules(?:/|$)';
 const SOURCE_PATH = '(?:^|/)(?:src|dist)/';
+// Public subpaths are intentionally narrow: reusable contract harnesses and migration
+// declarations are consumed without exposing a feature's implementation layers.
 const PUBLIC_INDEX = [
-  '^src/index\\.',
-  '^dist/index\\.',
-  '/src/index\\.',
-  '/dist/index\\.',
-  '^src/contract-test-kit\\.',
-  '^dist/contract-test-kit\\.',
-  '/src/contract-test-kit\\.',
-  '/dist/contract-test-kit\\.',
+  '^src/(?:index|migration|contract-test-kit)\\.',
+  '^dist/(?:index|migration|contract-test-kit)\\.',
+  '/src/(?:index|migration|contract-test-kit)\\.',
+  '/dist/(?:index|migration|contract-test-kit)\\.',
 ];
 const CROSS_PACKAGE_SOURCE_PATHS = Array.from({length: 8}, (_, upIndex) =>
   Array.from(
