@@ -4,7 +4,6 @@ import type {
   MembershipProjection,
   OAuthAttempt,
   ProviderIdentity,
-  Session,
 } from '../core/types.js';
 
 type Row = Record<string, unknown>;
@@ -41,20 +40,6 @@ export function oauthAttemptFromRow(row: Row): OAuthAttempt {
     environment: String(row.environment),
     expiresAt: date(row.expires_at),
     ...(consumedAt === undefined ? {} : {consumedAt}),
-  };
-}
-export function sessionFromRow(row: Row): Session {
-  const revokedAt = optionalDate(row.revoked_at);
-  return {
-    id: String(row.id),
-    identityId: String(row.identity_id),
-    tokenDigest: String(row.token_digest),
-    createdAt: date(row.created_at),
-    lastSeenAt: date(row.last_seen_at),
-    absoluteExpiresAt: date(row.absolute_expires_at),
-    inactivityExpiresAt: date(row.inactivity_expires_at),
-    ...(revokedAt === undefined ? {} : {revokedAt}),
-    updatedAt: date(row.updated_at),
   };
 }
 export function accountFromRow(row: Row): Account {

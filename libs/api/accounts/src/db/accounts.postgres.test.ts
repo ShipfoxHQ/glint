@@ -360,15 +360,53 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
       );
       await database.transaction((transaction) =>
         expect(
-          sessions.touch(transaction, session.id, now, new Date('2031-01-03T00:00:00.000Z')),
-        ).resolves.toBeUndefined(),
-      );
-      await database.transaction((transaction) =>
-        expect(
-          sessions.findByTokenDigest(transaction, session.tokenDigest, now),
+          sessions.touchByTokenDigest(
+            transaction,
+            session.tokenDigest,
+            now,
+            new Date('2031-01-03T00:00:00.000Z'),
+          ),
         ).resolves.toBeUndefined(),
       );
     }
+  });
+
+  it('slides sessions only after the five-minute inactivity hysteresis threshold', async () => {
+    if (!database) throw new Error('PostgreSQL fixture was not initialized.');
+    const sessions = new PostgresSessionRepository(database);
+    const now = new Date('2031-01-01T00:00:00.000Z');
+    const session = await database.transaction((transaction) =>
+      sessions.create(transaction, {
+        identityId: identityA,
+        tokenDigest: 'hysteresis-session',
+        absoluteExpiresAt: new Date('2031-02-01T00:00:00.000Z'),
+        inactivityExpiresAt: new Date('2031-01-01T00:10:00.000Z'),
+      }),
+    );
+
+    const belowThreshold = await database.transaction((transaction) =>
+      sessions.touchByTokenDigest(
+        transaction,
+        session.tokenDigest,
+        now,
+        new Date('2031-01-01T00:14:00.000Z'),
+      ),
+    );
+    expect(belowThreshold).toMatchObject({
+      inactivityExpiresAt: new Date('2031-01-01T00:10:00.000Z'),
+    });
+
+    const aboveThreshold = await database.transaction((transaction) =>
+      sessions.touchByTokenDigest(
+        transaction,
+        session.tokenDigest,
+        now,
+        new Date('2031-01-01T00:16:00.000Z'),
+      ),
+    );
+    expect(aboveThreshold).toMatchObject({
+      inactivityExpiresAt: new Date('2031-01-01T00:16:00.000Z'),
+    });
   });
 
   it('executes repository branches without leaking raw database conflicts', async () => {
@@ -447,15 +485,10 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
         inactivityExpiresAt: new Date('2031-01-02T00:00:00.000Z'),
       }),
     );
-    await activeDatabase.transaction((transaction) =>
-      expect(
-        sessions.findByTokenDigest(transaction, session.tokenDigest, now),
-      ).resolves.toMatchObject({id: session.id}),
-    );
     const touched = await activeDatabase.transaction((transaction) =>
-      sessions.touch(
+      sessions.touchByTokenDigest(
         transaction,
-        session.id,
+        session.tokenDigest,
         new Date('2031-01-01T00:00:01.000Z'),
         new Date('2031-01-03T00:00:00.000Z'),
       ),
@@ -465,9 +498,9 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
       lastSeenAt: new Date('2031-01-01T00:00:01.000Z'),
     });
     const staleTouch = await activeDatabase.transaction((transaction) =>
-      sessions.touch(
+      sessions.touchByTokenDigest(
         transaction,
-        session.id,
+        session.tokenDigest,
         new Date('2030-12-31T23:59:59.000Z'),
         new Date('2031-01-01T12:00:00.000Z'),
       ),
@@ -481,7 +514,12 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
     );
     await activeDatabase.transaction((transaction) =>
       expect(
-        sessions.findByTokenDigest(transaction, session.tokenDigest, now),
+        sessions.touchByTokenDigest(
+          transaction,
+          session.tokenDigest,
+          now,
+          new Date('2031-01-03T00:00:00.000Z'),
+        ),
       ).resolves.toBeUndefined(),
     );
     await activeDatabase.transaction((transaction) =>

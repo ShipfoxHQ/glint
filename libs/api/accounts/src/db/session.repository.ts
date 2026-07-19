@@ -46,38 +46,6 @@ export class PostgresSessionRepository implements SessionRepository {
       return sessionFromDatabaseRow(session);
     });
   }
-  findByTokenDigest(
-    transaction: Parameters<SessionRepository['findByTokenDigest']>[0],
-    tokenDigest: string,
-    now: Date,
-  ): Promise<Session | undefined> {
-    return this.database.useTransaction(transaction, async (tx) => {
-      const [session] = await tx
-        .select()
-        .from(sessions)
-        .where(and(eq(sessions.tokenDigest, tokenDigest), activeSessionWhere(now)));
-      return session ? sessionFromDatabaseRow(session) : undefined;
-    });
-  }
-  touch(
-    transaction: Parameters<SessionRepository['touch']>[0],
-    id: string,
-    now: Date,
-    inactivityExpiresAt: Date,
-  ): Promise<Session | undefined> {
-    return this.database.useTransaction(transaction, async (tx) => {
-      const [session] = await tx
-        .update(sessions)
-        .set({
-          lastSeenAt: sql<Date>`greatest(${sessions.lastSeenAt}, ${now})`,
-          inactivityExpiresAt: sql<Date>`greatest(${sessions.inactivityExpiresAt}, ${inactivityExpiresAt})`,
-          updatedAt: sql<Date>`now()`,
-        })
-        .where(and(eq(sessions.id, id), activeSessionWhere(now)))
-        .returning();
-      return session ? sessionFromDatabaseRow(session) : undefined;
-    });
-  }
   touchByTokenDigest(
     transaction: Parameters<SessionRepository['touchByTokenDigest']>[0],
     tokenDigest: string,

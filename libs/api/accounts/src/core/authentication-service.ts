@@ -193,6 +193,7 @@ export function createAuthenticationService(options: {
       );
     },
 
+    // Internal helper for future server-initiated security transitions; no refresh route is exposed.
     async rotateSession({token}) {
       const now = clock();
       return await options.database.transaction(async (transaction) => {

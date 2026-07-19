@@ -6,9 +6,34 @@ describe('API authentication environment', () => {
     expect(loadApiEnvironment({}).GLINT_SESSION_COOKIE_SECURE).toBe(false);
   });
 
-  it('rejects development signing keys and insecure cookies outside development', () => {
-    expect(() => loadApiEnvironment({GLINT_ENVIRONMENT: 'production'})).toThrow(
-      'Production security invariant',
-    );
+  const secureProductionEnvironment = {
+    GLINT_ENVIRONMENT: 'production',
+    GLINT_SESSION_COOKIE_SECURE: 'true',
+    GLINT_SESSION_TOKEN_SECRET: 'unique-session-secret',
+    GLINT_COOKIE_SECRET: 'unique-cookie-secret',
+  };
+
+  it('rejects insecure session cookies outside development', () => {
+    expect(() =>
+      loadApiEnvironment({...secureProductionEnvironment, GLINT_SESSION_COOKIE_SECURE: 'false'}),
+    ).toThrow('GLINT_SESSION_COOKIE_SECURE');
+  });
+
+  it('rejects the development session-token secret outside development', () => {
+    expect(() =>
+      loadApiEnvironment({
+        ...secureProductionEnvironment,
+        GLINT_SESSION_TOKEN_SECRET: 'development-session-token-secret-not-for-production',
+      }),
+    ).toThrow('GLINT_SESSION_TOKEN_SECRET');
+  });
+
+  it('rejects the development cookie-signing secret outside development', () => {
+    expect(() =>
+      loadApiEnvironment({
+        ...secureProductionEnvironment,
+        GLINT_COOKIE_SECRET: 'development-cookie-secret-not-for-production',
+      }),
+    ).toThrow('GLINT_COOKIE_SECRET');
   });
 });

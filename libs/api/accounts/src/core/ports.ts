@@ -31,17 +31,6 @@ export interface SessionRepository {
     transaction: DatabaseTransaction,
     input: Omit<Session, 'id' | 'createdAt' | 'lastSeenAt' | 'revokedAt' | 'updatedAt'>,
   ): Promise<Session>;
-  findByTokenDigest(
-    transaction: DatabaseTransaction,
-    tokenDigest: string,
-    now: Date,
-  ): Promise<Session | undefined>;
-  touch(
-    transaction: DatabaseTransaction,
-    id: string,
-    now: Date,
-    inactivityExpiresAt: Date,
-  ): Promise<Session | undefined>;
   touchByTokenDigest(
     transaction: DatabaseTransaction,
     tokenDigest: string,
