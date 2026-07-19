@@ -15,6 +15,7 @@ import type {
 import type {OAuthAttempt, ProviderIdentity, Session} from './types.js';
 
 const config: AuthModuleConfig = {
+  authorizationLeaseTtlSeconds: 900,
   absoluteTtlSeconds: 2_592_000,
   allowedOrigins: ['https://app.glint.test'],
   attemptTtlSeconds: 600,

@@ -5,6 +5,7 @@ import type {AuthenticationService, AuthModuleConfig} from '../core/authenticati
 import {registerAuthenticationRoutes} from './authentication-routes.js';
 
 const config: AuthModuleConfig = {
+  authorizationLeaseTtlSeconds: 900,
   absoluteTtlSeconds: 2_592_000,
   allowedOrigins: ['https://app.glint.test'],
   attemptTtlSeconds: 600,

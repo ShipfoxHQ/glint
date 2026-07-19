@@ -1,3 +1,4 @@
+import {AccountsAuthorizationError, AccountsPersistenceError} from '@glint/api-accounts';
 import type {Database} from '@glint/node-database';
 import {InMemoryBlobStore} from '@glint/node-object-store';
 import {InMemoryJobQueue} from '@glint/node-queue';
@@ -47,6 +48,48 @@ describe('API composition root', () => {
       ],
     });
     expect((await app.inject({method: 'GET', url: '/fixture'})).json()).toEqual({ok: true});
+    await app.close();
+  });
+
+  it('maps account authorization and persistence failures to safe HTTP responses', async () => {
+    const app = await createApiApp({
+      database: readyDatabase(),
+      blobStore: new InMemoryBlobStore(),
+      queue: new InMemoryJobQueue(),
+      modules: [
+        {
+          name: 'fixture',
+          routes: [
+            {
+              name: 'fixture',
+              value: (server) => {
+                server.get('/provider-timeout', () => {
+                  throw new AccountsAuthorizationError('PROVIDER_TIMEOUT');
+                });
+                server.get('/access-revoked', () => {
+                  throw new AccountsAuthorizationError('ACCOUNT_ACCESS_REVOKED');
+                });
+                server.get('/persistence-failure', () => {
+                  throw new AccountsPersistenceError('ACCOUNT_CONFLICT', 'unsafe detail');
+                });
+                server.get('/raw-rls-denial', () => {
+                  const error = Object.assign(new Error('unsafe PostgreSQL detail'), {
+                    code: '42501',
+                  });
+                  throw error;
+                });
+              },
+            },
+          ],
+        },
+      ],
+    });
+    expect((await app.inject({method: 'GET', url: '/provider-timeout'})).statusCode).toBe(503);
+    expect((await app.inject({method: 'GET', url: '/access-revoked'})).statusCode).toBe(403);
+    expect((await app.inject({method: 'GET', url: '/persistence-failure'})).json()).toEqual({
+      error: {code: 'INTERNAL'},
+    });
+    expect((await app.inject({method: 'GET', url: '/raw-rls-denial'})).statusCode).toBe(503);
     await app.close();
   });
 });

@@ -1,8 +1,5 @@
-import type {
-  VcsAuthorizationResult,
-  VcsIdentityProvider,
-  VcsProviderError,
-} from '@glint/api-vcs-core';
+import type {VcsAuthorizationResult, VcsIdentityProvider} from '@glint/api-vcs-core';
+import {classifyVcsProviderError} from '@glint/api-vcs-core';
 import type {Database} from '@glint/node-database';
 import {AuthenticationError} from './authentication-error.js';
 import type {
@@ -21,6 +18,7 @@ import {
 import type {ProviderIdentity, Session} from './types.js';
 
 export interface AuthModuleConfig {
+  readonly authorizationLeaseTtlSeconds: number;
   readonly absoluteTtlSeconds: number;
   readonly attemptTtlSeconds: number;
   readonly authorizeUrl: string;
@@ -66,10 +64,7 @@ function minDate(left: Date, right: Date): Date {
 }
 
 function mapVcsError(error: unknown): AuthenticationError {
-  if (typeof error !== 'object' || error === null || !('code' in error)) {
-    return new AuthenticationError('IDENTITY_PROVIDER_UNAVAILABLE');
-  }
-  const code = (error as VcsProviderError).code;
+  const code = classifyVcsProviderError(error);
   return code === 'access_revocation'
     ? new AuthenticationError('OAUTH_EXCHANGE_FAILED')
     : new AuthenticationError('IDENTITY_PROVIDER_UNAVAILABLE');

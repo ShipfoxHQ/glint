@@ -26,6 +26,9 @@ const schema = defineEnvironmentSchema({
   GLINT_ALLOWED_ORIGINS: environmentVariable(str({default: 'http://localhost:5173'}), {
     description: 'Comma-separated exact browser origins allowed to send credentialed API requests.',
   }),
+  GLINT_ACCOUNT_AUTHORIZATION_LEASE_TTL_SECONDS: environmentVariable(num({default: 900}), {
+    description: 'Lifetime of a verified provider account-access lease in seconds.',
+  }),
   GLINT_ENVIRONMENT: environmentVariable(str({default: 'development'}), {
     description: 'Deployment environment recorded on OAuth attempts.',
   }),

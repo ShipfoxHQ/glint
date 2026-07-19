@@ -45,6 +45,7 @@ const identityProvider = createGithubVcsProvider({
   webhookSecret: apiEnvironment.GLINT_GITHUB_WEBHOOK_SECRET,
 });
 const authConfig = {
+  authorizationLeaseTtlSeconds: apiEnvironment.GLINT_ACCOUNT_AUTHORIZATION_LEASE_TTL_SECONDS,
   absoluteTtlSeconds: apiEnvironment.GLINT_SESSION_ABSOLUTE_TTL_SECONDS,
   allowedOrigins: apiEnvironment.GLINT_ALLOWED_ORIGINS.split(',')
     .map((origin) => origin.trim())
@@ -76,6 +77,7 @@ const app = await createApiApp({
     createAccountsAuthModule<ApiCapabilities>({
       database,
       identityProvider,
+      namespaceAccessProvider: identityProvider,
       config: authConfig,
       reportUnexpectedError: (error) =>
         logger.error('OAuth callback failed unexpectedly.', {

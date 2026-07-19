@@ -47,6 +47,7 @@ describe('account DTO contracts', () => {
           expiresAt: '2030-01-01T00:00:00.000Z',
         },
         identity: {id: 'identity-1', provider: 'github', login: 'octocat'},
+        accounts: [],
       }),
     ).toMatchObject({session: {id: 'session-1'}});
   });

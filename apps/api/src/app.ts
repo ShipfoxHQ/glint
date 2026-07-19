@@ -1,7 +1,11 @@
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
-import {AuthenticationError} from '@glint/api-accounts';
-import type {Database} from '@glint/node-database';
+import {
+  AccountsAuthorizationError,
+  AccountsPersistenceError,
+  AuthenticationError,
+} from '@glint/api-accounts';
+import {type Database, databaseErrorCode} from '@glint/node-database';
 import {
   composeModules,
   type GlintCapabilityTypes,
@@ -46,6 +50,28 @@ export async function createApiApp(options: {
               ? 403
               : 400;
       return reply.code(statusCode).send({error: {code: error.code}});
+    }
+    if (error instanceof AccountsAuthorizationError) {
+      const statusCode =
+        error.code === 'IDENTITY_NOT_FOUND'
+          ? 401
+          : error.code === 'INSTALLATION_REQUIRED'
+            ? 409
+            : error.code === 'PROVIDER_TIMEOUT' ||
+                error.code === 'PROVIDER_RATE_LIMITED' ||
+                error.code === 'PROVIDER_MALFORMED_RESPONSE' ||
+                error.code === 'INSTALLATION_UNAVAILABLE'
+              ? 503
+              : 403;
+      return reply.code(statusCode).send({error: {code: error.code}});
+    }
+    if (error instanceof AccountsPersistenceError || databaseErrorCode(error) === '42501') {
+      options.logger?.error('Database authorization denied.', {
+        error: error instanceof Error ? error.message : String(error),
+        method: request.method,
+        url: request.url,
+      });
+      return reply.code(503).send({error: {code: 'INTERNAL'}});
     }
     if (typeof error === 'object' && error !== null && 'statusCode' in error) {
       const statusCode = Reflect.get(error, 'statusCode');

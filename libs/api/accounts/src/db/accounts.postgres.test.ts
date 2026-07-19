@@ -197,6 +197,53 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
     expect(rows.rows).toEqual([{id: accountA}]);
   });
 
+  it('allows authorization projection writes only in the verified tenant transaction', async () => {
+    if (!database) throw new Error('PostgreSQL fixture was not initialized.');
+    const accounts = new PostgresAccountRepository(database);
+    const memberships = new PostgresMembershipProjectionRepository(database);
+    const now = new Date('2031-01-01T00:00:00.000Z');
+
+    const discovered = await asRequestTransaction(
+      {identity: {identityId: identityA}},
+      (transaction) => accounts.listSummariesForIdentity(transaction),
+    );
+    expect(discovered.map(({id}) => id)).toEqual([accountA]);
+
+    await expect(
+      asRequestTransaction({tenant: {accountId: accountA}}, (transaction) =>
+        memberships.projectFromProviderAccess(transaction, {
+          accountId: accountA,
+          identityId: identityA,
+          providerRole: 'admin',
+          role: 'owner',
+          state: 'active',
+          verifiedAt: now,
+          leaseExpiresAt: new Date('2031-01-01T00:15:00.000Z'),
+        }),
+      ),
+    ).resolves.toMatchObject({accountId: accountA, identityId: identityA, role: 'owner'});
+
+    await expect(
+      asRequestTransaction({tenant: {accountId: accountA}}, (transaction) =>
+        memberships.projectFromProviderAccess(transaction, {
+          accountId: accountB,
+          identityId: identityA,
+          providerRole: 'member',
+          role: 'reviewer',
+          state: 'active',
+          verifiedAt: now,
+          leaseExpiresAt: new Date('2031-01-01T00:15:00.000Z'),
+        }),
+      ),
+    ).rejects.toMatchObject({cause: {code: '42501'}});
+
+    const phaseOne = await asRequestTransaction(
+      {identity: {identityId: identityA}},
+      (transaction) => memberships.findForAccountIdentity(transaction, accountA, identityA),
+    );
+    expect(phaseOne).toMatchObject({state: 'active', role: 'owner'});
+  });
+
   it('runs owner provisioning writes and repeat migrations successfully', async () => {
     if (!pool || !database) throw new Error('PostgreSQL fixture was not initialized.');
     const provisioned = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';

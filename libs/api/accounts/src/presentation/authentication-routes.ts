@@ -3,7 +3,9 @@ import '@fastify/cookie';
 import type {FastifyInstance, FastifyReply, FastifyRequest, preHandlerHookHandler} from 'fastify';
 import {AuthenticationError} from '../core/authentication-error.js';
 import type {AuthenticationService, AuthModuleConfig} from '../core/authentication-service.js';
+import type {AuthorizationService} from '../core/authorization-service.js';
 import type {Session} from '../core/types.js';
+import {accountNamespaceRepresentation} from './account-representations.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -15,7 +17,7 @@ function preAuthCookieName(config: AuthModuleConfig): string {
   return `${config.cookieSecure ? '__Host-' : ''}${config.cookieName}-oauth-state`;
 }
 
-function sessionCookieName(config: AuthModuleConfig): string {
+export function sessionCookieName(config: AuthModuleConfig): string {
   return `${config.cookieSecure ? '__Host-' : ''}${config.cookieName}`;
 }
 
@@ -71,6 +73,7 @@ export function mutationGuard(config: AuthModuleConfig): preHandlerHookHandler {
     if (!(requiredHeader in request.headers)) {
       throw new AuthenticationError('REQUEST_PREFLIGHT_MISSING');
     }
+    return Promise.resolve();
   };
 }
 
@@ -85,7 +88,7 @@ export function requireSession(
   };
 }
 
-function attachSessionCookie(
+export function attachSessionCookie(
   reply: FastifyReply,
   config: AuthModuleConfig,
   token: string,
@@ -97,6 +100,7 @@ function attachSessionCookie(
 export function registerAuthenticationRoutes(
   app: FastifyInstance,
   options: {
+    readonly authorizationService?: AuthorizationService;
     readonly config: AuthModuleConfig;
     readonly reportUnexpectedError?: (error: unknown) => void;
     readonly service: AuthenticationService;
@@ -152,6 +156,9 @@ export function registerAuthenticationRoutes(
     if (!identity) throw new AuthenticationError('SESSION_EXPIRED');
     const token = request.cookies[sessionCookieName(config)];
     if (token) attachSessionCookie(reply, config, token, session);
+    const accounts = await options.authorizationService?.listAccessibleAccounts({
+      identityId: session.identityId,
+    });
     return {
       session: {
         id: session.id,
@@ -161,6 +168,18 @@ export function registerAuthenticationRoutes(
         ).toISOString(),
       },
       identity,
+      accounts: (accounts ?? []).map(({account, membership}) => ({
+        id: account.id,
+        namespace: accountNamespaceRepresentation(account),
+        slug: account.slug,
+        displayName: account.displayName,
+        role: membership.role,
+        state: account.state,
+        ...(membership.verifiedAt ? {verifiedAt: membership.verifiedAt.toISOString()} : {}),
+        ...(membership.leaseExpiresAt
+          ? {leaseExpiresAt: membership.leaseExpiresAt.toISOString()}
+          : {}),
+      })),
     };
   });
 
