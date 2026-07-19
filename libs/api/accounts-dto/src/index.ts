@@ -59,8 +59,31 @@ export const accountErrorCodeSchema = z.enum([
   'PROVIDER_TIMEOUT',
 ]);
 
+export const authErrorCodeSchema = z.enum([
+  'OAUTH_STATE_INVALID',
+  'OAUTH_ACCESS_DENIED',
+  'OAUTH_EXCHANGE_FAILED',
+  'IDENTITY_PROVIDER_UNAVAILABLE',
+  'SESSION_EXPIRED',
+  'REQUEST_ORIGIN_INVALID',
+  'REQUEST_CONTENT_TYPE_INVALID',
+  'REQUEST_PREFLIGHT_MISSING',
+]);
+
+export const authErrorResponseSchema = z.object({
+  error: z.object({code: authErrorCodeSchema}),
+});
+
+export const sessionEnvelopeSchema = z.object({
+  session: sessionRepresentationSchema,
+  identity: identityRepresentationSchema,
+});
+
 export type SessionRepresentation = z.infer<typeof sessionRepresentationSchema>;
 export type IdentityRepresentation = z.infer<typeof identityRepresentationSchema>;
 export type AccountRepresentation = z.infer<typeof accountRepresentationSchema>;
 export type MembershipRepresentation = z.infer<typeof membershipRepresentationSchema>;
 export type AccountErrorCode = z.infer<typeof accountErrorCodeSchema>;
+export type AuthErrorCode = z.infer<typeof authErrorCodeSchema>;
+export type AuthErrorResponse = z.infer<typeof authErrorResponseSchema>;
+export type SessionEnvelope = z.infer<typeof sessionEnvelopeSchema>;

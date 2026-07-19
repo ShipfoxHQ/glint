@@ -16,6 +16,10 @@
     "type:emit": "shipfox-tsc-emit"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.0.1",
+    "@glint/api-accounts": "workspace:*",
+    "@glint/api-vcs-github": "workspace:*",
     "@glint/node-config": "workspace:*",
     "@glint/node-database": "workspace:*",
     "@glint/node-module": "workspace:*",
@@ -25,6 +29,7 @@
     "fastify": "5.10.0"
   },
   "devDependencies": {
+    "@glint/api-vcs-core": "workspace:*",
     "@shipfox/biome": "1.8.1",
     "@shipfox/depcruise": "1.0.1",
     "@shipfox/swc": "1.2.5",

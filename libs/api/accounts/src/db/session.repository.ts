@@ -1,8 +1,30 @@
 import type {PostgresDatabase} from '@glint/node-database';
-import {sql} from 'drizzle-orm';
+import {and, eq, gt, isNull, sql} from 'drizzle-orm';
 import type {SessionRepository} from '../core/ports.js';
 import type {Session} from '../core/types.js';
-import {requiredRow, sessionFromRow} from './mapping.js';
+import {sessions} from './schema/auth.js';
+
+function sessionFromDatabaseRow(row: typeof sessions.$inferSelect): Session {
+  return {
+    id: row.id,
+    identityId: row.identityId,
+    tokenDigest: row.tokenDigest,
+    createdAt: row.createdAt,
+    lastSeenAt: row.lastSeenAt,
+    absoluteExpiresAt: row.absoluteExpiresAt,
+    inactivityExpiresAt: row.inactivityExpiresAt,
+    ...(row.revokedAt ? {revokedAt: row.revokedAt} : {}),
+    updatedAt: row.updatedAt,
+  };
+}
+
+function activeSessionWhere(now: Date) {
+  return and(
+    isNull(sessions.revokedAt),
+    gt(sessions.absoluteExpiresAt, now),
+    gt(sessions.inactivityExpiresAt, now),
+  );
+}
 
 export class PostgresSessionRepository implements SessionRepository {
   constructor(readonly database: PostgresDatabase) {}
@@ -11,36 +33,41 @@ export class PostgresSessionRepository implements SessionRepository {
     input: Omit<Session, 'id' | 'createdAt' | 'lastSeenAt' | 'revokedAt' | 'updatedAt'>,
   ): Promise<Session> {
     return this.database.useTransaction(transaction, async (tx) => {
-      const result = await tx.execute<Record<string, unknown>>(
-        sql`INSERT INTO auth_sessions (identity_id, token_digest, absolute_expires_at, inactivity_expires_at) VALUES (${input.identityId}, ${input.tokenDigest}, ${input.absoluteExpiresAt}, ${input.inactivityExpiresAt}) RETURNING *`,
-      );
-      return sessionFromRow(requiredRow(result.rows));
+      const [session] = await tx
+        .insert(sessions)
+        .values({
+          identityId: input.identityId,
+          tokenDigest: input.tokenDigest,
+          absoluteExpiresAt: input.absoluteExpiresAt,
+          inactivityExpiresAt: input.inactivityExpiresAt,
+        })
+        .returning();
+      if (!session) throw new Error('Expected session creation to return a row.');
+      return sessionFromDatabaseRow(session);
     });
   }
-  findByTokenDigest(
-    transaction: Parameters<SessionRepository['findByTokenDigest']>[0],
+  touchByTokenDigest(
+    transaction: Parameters<SessionRepository['touchByTokenDigest']>[0],
     tokenDigest: string,
     now: Date,
+    inactivityTarget: Date,
   ): Promise<Session | undefined> {
     return this.database.useTransaction(transaction, async (tx) => {
-      const result = await tx.execute<Record<string, unknown>>(
-        sql`SELECT * FROM auth_sessions WHERE token_digest = ${tokenDigest} AND revoked_at IS NULL AND absolute_expires_at > ${now} AND inactivity_expires_at > ${now}`,
-      );
-      return result.rows[0] ? sessionFromRow(result.rows[0]) : undefined;
-    });
-  }
-  touch(
-    transaction: Parameters<SessionRepository['touch']>[0],
-    id: string,
-    now: Date,
-    inactivityExpiresAt: Date,
-  ): Promise<Session | undefined> {
-    return this.database.useTransaction(transaction, async (tx) => {
-      // Concurrent or stale requests must never revive an expired session or move its lease backward.
-      const result = await tx.execute<Record<string, unknown>>(
-        sql`UPDATE auth_sessions SET last_seen_at = GREATEST(last_seen_at, ${now}), inactivity_expires_at = GREATEST(inactivity_expires_at, ${inactivityExpiresAt}), updated_at = now() WHERE id = ${id} AND revoked_at IS NULL AND absolute_expires_at > ${now} AND inactivity_expires_at > ${now} RETURNING *`,
-      );
-      return result.rows[0] ? sessionFromRow(result.rows[0]) : undefined;
+      // A single statement validates and slides the session, so no stale read can revive it.
+      const [session] = await tx
+        .update(sessions)
+        .set({
+          lastSeenAt: sql<Date>`greatest(${sessions.lastSeenAt}, ${now})`,
+          inactivityExpiresAt: sql<Date>`case
+            when ${sessions.inactivityExpiresAt} < least(${inactivityTarget}, ${sessions.absoluteExpiresAt}) - interval '5 minutes'
+              then least(${inactivityTarget}, ${sessions.absoluteExpiresAt})
+            else ${sessions.inactivityExpiresAt}
+          end`,
+          updatedAt: sql<Date>`now()`,
+        })
+        .where(and(eq(sessions.tokenDigest, tokenDigest), activeSessionWhere(now)))
+        .returning();
+      return session ? sessionFromDatabaseRow(session) : undefined;
     });
   }
   async revoke(
@@ -48,25 +75,29 @@ export class PostgresSessionRepository implements SessionRepository {
     id: string,
     now: Date,
   ): Promise<void> {
-    await this.database.useTransaction(transaction, (tx) =>
-      tx
-        .execute(
-          sql`UPDATE auth_sessions SET revoked_at = COALESCE(revoked_at, ${now}), updated_at = now() WHERE id = ${id}`,
-        )
-        .then(() => undefined),
-    );
+    await this.database.useTransaction(transaction, async (tx) => {
+      await tx
+        .update(sessions)
+        .set({
+          revokedAt: sql<Date>`coalesce(${sessions.revokedAt}, ${now})`,
+          updatedAt: sql<Date>`now()`,
+        })
+        .where(eq(sessions.id, id));
+    });
   }
   async revokeAllForIdentity(
     transaction: Parameters<SessionRepository['revokeAllForIdentity']>[0],
     identityId: string,
     now: Date,
   ): Promise<void> {
-    await this.database.useTransaction(transaction, (tx) =>
-      tx
-        .execute(
-          sql`UPDATE auth_sessions SET revoked_at = COALESCE(revoked_at, ${now}), updated_at = now() WHERE identity_id = ${identityId}`,
-        )
-        .then(() => undefined),
-    );
+    await this.database.useTransaction(transaction, async (tx) => {
+      await tx
+        .update(sessions)
+        .set({
+          revokedAt: sql<Date>`coalesce(${sessions.revokedAt}, ${now})`,
+          updatedAt: sql<Date>`now()`,
+        })
+        .where(eq(sessions.identityId, identityId));
+    });
   }
 }

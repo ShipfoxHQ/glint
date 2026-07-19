@@ -39,10 +39,13 @@
     "type:emit": "shipfox-tsc-emit"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.0.2",
     "@glint/api-accounts-dto": "workspace:*",
+    "@glint/api-vcs-core": "workspace:*",
     "@glint/node-database": "workspace:*",
     "@glint/node-module": "workspace:*",
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "fastify": "5.10.0"
   },
   "devDependencies": {
     "@shipfox/biome": "1.8.1",

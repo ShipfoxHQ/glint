@@ -31,16 +31,11 @@ export interface SessionRepository {
     transaction: DatabaseTransaction,
     input: Omit<Session, 'id' | 'createdAt' | 'lastSeenAt' | 'revokedAt' | 'updatedAt'>,
   ): Promise<Session>;
-  findByTokenDigest(
+  touchByTokenDigest(
     transaction: DatabaseTransaction,
     tokenDigest: string,
     now: Date,
-  ): Promise<Session | undefined>;
-  touch(
-    transaction: DatabaseTransaction,
-    id: string,
-    now: Date,
-    inactivityExpiresAt: Date,
+    inactivityTarget: Date,
   ): Promise<Session | undefined>;
   revoke(transaction: DatabaseTransaction, id: string, now: Date): Promise<void>;
   revokeAllForIdentity(

@@ -1,5 +1,11 @@
 import {describe, expect, it} from '@shipfox/vitest/vi';
-import {accountErrorCodeSchema, accountRepresentationSchema, accountRoleSchema} from './index.js';
+import {
+  accountErrorCodeSchema,
+  accountRepresentationSchema,
+  accountRoleSchema,
+  authErrorCodeSchema,
+  sessionEnvelopeSchema,
+} from './index.js';
 
 describe('account DTO contracts', () => {
   it('keeps Glint roles separate from provider access levels', () => {
@@ -28,5 +34,20 @@ describe('account DTO contracts', () => {
         state: 'active',
       }),
     ).toThrow();
+  });
+
+  it('defines safe authentication errors and session envelopes', () => {
+    expect(authErrorCodeSchema.parse('SESSION_EXPIRED')).toBe('SESSION_EXPIRED');
+    expect(() => authErrorCodeSchema.parse('provider token leaked')).toThrow();
+    expect(
+      sessionEnvelopeSchema.parse({
+        session: {
+          id: 'session-1',
+          identityId: 'identity-1',
+          expiresAt: '2030-01-01T00:00:00.000Z',
+        },
+        identity: {id: 'identity-1', provider: 'github', login: 'octocat'},
+      }),
+    ).toMatchObject({session: {id: 'session-1'}});
   });
 });

@@ -1,3 +1,6 @@
+import fastifyCookie from '@fastify/cookie';
+import fastifyCors from '@fastify/cors';
+import {AuthenticationError} from '@glint/api-accounts';
 import type {Database} from '@glint/node-database';
 import {
   composeModules,
@@ -6,7 +9,7 @@ import {
   selectCapabilities,
 } from '@glint/node-module';
 import type {BlobStore} from '@glint/node-object-store';
-import {HealthRegistry} from '@glint/node-observability';
+import {HealthRegistry, type StructuredLogger} from '@glint/node-observability';
 import type {JobQueue} from '@glint/node-queue';
 import Fastify, {type FastifyInstance} from 'fastify';
 
@@ -24,8 +27,58 @@ export async function createApiApp(options: {
   readonly database: Database;
   readonly modules?: readonly GlintModule<ApiCapabilities>[];
   readonly queue: JobQueue;
+  readonly logger?: StructuredLogger;
+  readonly browserSecurity?: {
+    readonly allowedOrigins: readonly string[];
+    readonly cookieSecret: string;
+    readonly mutationPreflightHeader: string;
+  };
 }): Promise<FastifyInstance> {
   const app = Fastify({logger: false});
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof AuthenticationError) {
+      const statusCode =
+        error.code === 'SESSION_EXPIRED'
+          ? 401
+          : error.code === 'REQUEST_CONTENT_TYPE_INVALID'
+            ? 415
+            : error.code === 'REQUEST_ORIGIN_INVALID' || error.code === 'REQUEST_PREFLIGHT_MISSING'
+              ? 403
+              : 400;
+      return reply.code(statusCode).send({error: {code: error.code}});
+    }
+    if (typeof error === 'object' && error !== null && 'statusCode' in error) {
+      const statusCode = Reflect.get(error, 'statusCode');
+      if (typeof statusCode === 'number') return reply.code(statusCode).send(error);
+    }
+    options.logger?.error('Unhandled API request error.', {
+      error: error instanceof Error ? error.message : String(error),
+      method: request.method,
+      url: request.url,
+    });
+    return reply.code(500).send({error: {code: 'INTERNAL'}});
+  });
+  await app.register(fastifyCookie, {
+    ...(options.browserSecurity ? {secret: options.browserSecurity.cookieSecret} : {}),
+  });
+  if (options.browserSecurity) {
+    await app.register(fastifyCors, {
+      allowedHeaders: ['content-type', options.browserSecurity.mutationPreflightHeader],
+      credentials: true,
+      origin: [...options.browserSecurity.allowedOrigins],
+    });
+  }
+  // Logout mutations are JSON-gated but intentionally accept no request body.
+  app.removeContentTypeParser('application/json');
+  app.addContentTypeParser('application/json', {parseAs: 'string'}, (_request, body, done) => {
+    const text = typeof body === 'string' ? body : body.toString();
+    if (text.trim().length === 0) return done(null, {});
+    try {
+      return done(null, JSON.parse(text));
+    } catch (error) {
+      return done(error as Error);
+    }
+  });
   const health = new HealthRegistry();
   health.registerReadinessCheck({
     name: 'database',
