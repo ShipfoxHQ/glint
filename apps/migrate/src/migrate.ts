@@ -1,4 +1,5 @@
 import {accountsModule} from '@glint/api-accounts/migration';
+import {projectsModule} from '@glint/api-projects/migration';
 import type {PostgresDatabase} from '@glint/node-database';
 import {runOrderedMigrations} from '@glint/node-database';
 import {composeModules, type GlintModule, selectCapabilities} from '@glint/node-module';
@@ -11,7 +12,7 @@ export const foundationModules: readonly GlintModule[] = [
   },
 ];
 
-export const featureModules: readonly GlintModule[] = [accountsModule];
+export const featureModules: readonly GlintModule[] = [accountsModule, projectsModule];
 
 export async function migrate(
   database: Pick<PostgresDatabase, 'drizzle'>,

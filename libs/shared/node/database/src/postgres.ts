@@ -320,7 +320,8 @@ function describeDatabaseError(error: unknown): string {
   return code ? `PostgreSQL ${code}: ${message}` : `PostgreSQL: ${message}`;
 }
 
-function databaseErrorCode(error: unknown): string | undefined {
+/** Returns the first PostgreSQL SQLSTATE found in an error's causal chain. */
+export function databaseErrorCode(error: unknown): string | undefined {
   let candidate = error;
   const seen = new Set<object>();
   while (candidate && typeof candidate === 'object' && !seen.has(candidate)) {

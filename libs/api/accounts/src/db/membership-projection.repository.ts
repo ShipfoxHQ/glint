@@ -1,10 +1,9 @@
-import type {PostgresDatabase} from '@glint/node-database';
+import {databaseErrorCode, type PostgresDatabase} from '@glint/node-database';
 import {sql} from 'drizzle-orm';
 import {AccountsPersistenceError} from '../core/errors.js';
 import type {MembershipProjectionRepository} from '../core/ports.js';
 import type {MembershipProjection} from '../core/types.js';
 import {membershipFromRow, requiredRow} from './mapping.js';
-import {postgresCode} from './postgres-error.js';
 
 export class PostgresMembershipProjectionRepository implements MembershipProjectionRepository {
   constructor(readonly database: PostgresDatabase) {}
@@ -20,7 +19,7 @@ export class PostgresMembershipProjectionRepository implements MembershipProject
         return membershipFromRow(requiredRow(result.rows));
       });
     } catch (error) {
-      if (postgresCode(error) === '23505')
+      if (databaseErrorCode(error) === '23505')
         throw new AccountsPersistenceError(
           'ACCOUNT_CONFLICT',
           'Membership projection could not be updated.',

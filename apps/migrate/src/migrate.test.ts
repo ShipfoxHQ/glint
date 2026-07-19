@@ -11,13 +11,16 @@ describe('migration composition root', () => {
   });
 
   it('keeps feature migrations separate from shared foundation modules', () => {
-    expect(featureModules).toEqual([{name: 'accounts', migrations: expect.any(Array)}]);
+    expect(featureModules).toEqual([
+      {name: 'accounts', migrations: expect.any(Array)},
+      {name: 'projects', migrations: expect.any(Array)},
+    ]);
   });
 
-  it('composes accounts after the shared transactional-outbox migration', () => {
+  it('composes feature migrations after the shared transactional-outbox migration', () => {
     const composition = composeModules([...foundationModules, ...featureModules]);
     expect(
       selectCapabilities(composition, ['migrations']).migrations.map(({name}) => name),
-    ).toEqual(['outbox', 'accounts']);
+    ).toEqual(['outbox', 'accounts', 'projects']);
   });
 });
