@@ -42,6 +42,12 @@ export interface SessionRepository {
     now: Date,
     inactivityExpiresAt: Date,
   ): Promise<Session | undefined>;
+  touchByTokenDigest(
+    transaction: DatabaseTransaction,
+    tokenDigest: string,
+    now: Date,
+    inactivityTarget: Date,
+  ): Promise<Session | undefined>;
   revoke(transaction: DatabaseTransaction, id: string, now: Date): Promise<void>;
   revokeAllForIdentity(
     transaction: DatabaseTransaction,
