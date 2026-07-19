@@ -13,6 +13,11 @@ export class PostgresAccountRepository implements AccountRepository {
   ): Promise<Account> {
     try {
       return await this.database.useTransaction(transaction, async (tx) => {
+        // Serialize one provider namespace so the secondary provider/slug unique index cannot
+        // race the namespace-targeted upsert before PostgreSQL reaches its ON CONFLICT branch.
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`accounts:${input.provider}:${input.providerNamespaceId}`}, 0))`,
+        );
         const result = await tx.execute<Record<string, unknown>>(
           sql`INSERT INTO accounts (provider, provider_namespace_id, namespace_kind, slug, display_name, avatar_url, state) VALUES (${input.provider}, ${input.providerNamespaceId}, ${input.namespaceKind}, ${input.slug}, ${input.displayName}, ${input.avatarUrl ?? null}, ${input.state}) ON CONFLICT (provider, provider_namespace_id) DO UPDATE SET namespace_kind = EXCLUDED.namespace_kind, slug = EXCLUDED.slug, display_name = EXCLUDED.display_name, avatar_url = EXCLUDED.avatar_url, state = EXCLUDED.state, updated_at = now() RETURNING *`,
         );

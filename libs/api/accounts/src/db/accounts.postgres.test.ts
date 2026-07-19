@@ -304,7 +304,7 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
     if (!firstIdentity || !secondIdentity) throw new Error('Expected two identity upsert results.');
     expect(firstIdentity.id).toBe(secondIdentity.id);
     const concurrentAccounts = await Promise.all(
-      ['First', 'Second'].map((displayName) =>
+      Array.from({length: 12}, (_, index) => `Account ${index}`).map((displayName) =>
         activeDatabase.transaction((transaction) =>
           accountRepository.upsertByProviderNamespace(transaction, {
             provider: 'github',
@@ -322,17 +322,18 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
     if (!firstAccount || !secondAccount) throw new Error('Expected two account upsert results.');
     expect(firstAccount.id).toBe(secondAccount.id);
     const linked = await Promise.all(
-      ['all', 'selected'].map((repositorySelection) =>
-        activeDatabase.transaction((transaction) =>
-          installations.linkCurrent(transaction, {
-            accountId: firstAccount.id,
-            provider: 'github',
-            providerInstallationId: 'repository-concurrent-installation',
-            state: 'active',
-            repositorySelection: repositorySelection as 'all' | 'selected',
-            installedAt: new Date('2032-01-01T00:00:00.000Z'),
-          }),
-        ),
+      Array.from({length: 12}, (_, index) => (index % 2 === 0 ? 'all' : 'selected')).map(
+        (repositorySelection) =>
+          activeDatabase.transaction((transaction) =>
+            installations.linkCurrent(transaction, {
+              accountId: firstAccount.id,
+              provider: 'github',
+              providerInstallationId: 'repository-concurrent-installation',
+              state: 'active',
+              repositorySelection: repositorySelection as 'all' | 'selected',
+              installedAt: new Date('2032-01-01T00:00:00.000Z'),
+            }),
+          ),
       ),
     );
     expect(new Set(linked.map(({id}) => id)).size).toBe(1);
