@@ -36,6 +36,7 @@ export class PostgresSessionRepository implements SessionRepository {
     inactivityExpiresAt: Date,
   ): Promise<Session | undefined> {
     return this.database.useTransaction(transaction, async (tx) => {
+      // Concurrent or stale requests must never revive an expired session or move its lease backward.
       const result = await tx.execute<Record<string, unknown>>(
         sql`UPDATE auth_sessions SET last_seen_at = GREATEST(last_seen_at, ${now}), inactivity_expires_at = GREATEST(inactivity_expires_at, ${inactivityExpiresAt}), updated_at = now() WHERE id = ${id} AND revoked_at IS NULL AND absolute_expires_at > ${now} AND inactivity_expires_at > ${now} RETURNING *`,
       );

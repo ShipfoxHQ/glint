@@ -4,18 +4,16 @@ import {AccountsPersistenceError} from '../core/errors.js';
 import type {InstallationRepository} from '../core/ports.js';
 import type {Installation} from '../core/types.js';
 import {installationFromRow, requiredRow} from './mapping.js';
-import {postgresCode} from './postgres-error.js';
 
 export class PostgresInstallationRepository implements InstallationRepository {
   constructor(readonly database: PostgresDatabase) {}
-  async linkCurrent(
+  linkCurrent(
     transaction: Parameters<InstallationRepository['linkCurrent']>[0],
     input: Omit<Installation, 'id' | 'suspendedAt' | 'removedAt'>,
   ): Promise<Installation> {
-    try {
-      return await this.database.useTransaction(transaction, async (tx) => {
-        const result = await tx.execute<Record<string, unknown>>(
-          sql`WITH existing AS MATERIALIZED (
+    return this.database.useTransaction(transaction, async (tx) => {
+      const result = await tx.execute<Record<string, unknown>>(
+        sql`WITH existing AS MATERIALIZED (
             SELECT account_id FROM accounts_installations
             WHERE provider = ${input.provider} AND provider_installation_id = ${input.providerInstallationId}
           ), retired AS (
@@ -39,23 +37,15 @@ export class PostgresInstallationRepository implements InstallationRepository {
               WHERE accounts_installations.account_id = EXCLUDED.account_id
             RETURNING *
           ) SELECT * FROM linked`,
-        );
-        if (!result.rows[0]) {
-          throw new AccountsPersistenceError(
-            'INSTALLATION_CONFLICT',
-            'The provider installation is already linked to another account.',
-          );
-        }
-        return installationFromRow(requiredRow(result.rows));
-      });
-    } catch (error) {
-      if (postgresCode(error) === '23505')
+      );
+      if (!result.rows[0]) {
         throw new AccountsPersistenceError(
           'INSTALLATION_CONFLICT',
-          'A current installation already exists for this account and provider.',
+          'The provider installation is already linked to another account.',
         );
-      throw error;
-    }
+      }
+      return installationFromRow(requiredRow(result.rows));
+    });
   }
   findCurrentForAccount(
     transaction: Parameters<InstallationRepository['findCurrentForAccount']>[0],

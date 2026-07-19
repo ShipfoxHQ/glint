@@ -19,7 +19,7 @@ Pull requests run the same repository gates available locally:
 mise run verify                         # architecture, lint, types, build, exports, tests
 docker compose up --wait -d postgres garage
 docker compose run --rm garage-init
-mise run database:test                  # PostgreSQL migration and outbox contracts
+mise run database:test                  # PostgreSQL transaction, migration, outbox, and accounts RLS contracts
 pnpm run export-check                   # after a build; validates declared package entry points
 turbo image --filter @glint/app-worker  # build-only container validation; does not publish
 ```

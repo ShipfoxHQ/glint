@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {
+  type DatabaseTransaction,
   loadDatabaseEnvironment,
   PostgresDatabase,
   type PostgresDrizzleTransaction,
@@ -95,30 +96,85 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
     );
   }
 
+  function asRequestTransaction<T>(
+    options: TransactionOptions,
+    operation: (transaction: DatabaseTransaction) => Promise<T>,
+  ): Promise<T> {
+    const activeDatabase = database;
+    if (!activeDatabase) throw new Error('PostgreSQL fixture was not initialized.');
+    return activeDatabase.transaction(async (transaction) => {
+      await activeDatabase.useTransaction(transaction, (tx) =>
+        tx.execute(sql.raw(`SET LOCAL ROLE ${requestRole}`)),
+      );
+      return operation(transaction);
+    }, options);
+  }
+
   it('enforces identity and tenant visibility while global session lookup remains available', async () => {
     const identityRows = await asRequest({identity: {identityId: identityA}}, (tx) =>
       tx.execute<{id: string}>(sql`SELECT id FROM accounts ORDER BY id`),
     );
     expect(identityRows.rows).toEqual([{id: accountA}]);
-    const installations = await asRequest({identity: {identityId: identityA}}, (tx) =>
+    const identityMemberships = await asRequest({identity: {identityId: identityA}}, (tx) =>
+      tx.execute<{account_id: string}>(sql`SELECT account_id FROM accounts_memberships`),
+    );
+    expect(identityMemberships.rows).toEqual([{account_id: accountA}]);
+    const identityInstallations = await asRequest({identity: {identityId: identityA}}, (tx) =>
       tx.execute(sql`SELECT * FROM accounts_installations`),
     );
-    expect(installations.rows).toEqual([]);
+    expect(identityInstallations.rows).toEqual([]);
     const tenantRows = await asRequest({tenant: {accountId: accountA}}, (tx) =>
-      tx.execute<{account_id: string}>(sql`SELECT account_id FROM accounts_installations`),
+      tx.execute<{account_id: string}>(sql`SELECT account_id FROM accounts_memberships`),
     );
     expect(tenantRows.rows).toEqual([{account_id: accountA}]);
+    const tenantInstallations = await asRequest({tenant: {accountId: accountA}}, (tx) =>
+      tx.execute<{account_id: string}>(sql`SELECT account_id FROM accounts_installations`),
+    );
+    expect(tenantInstallations.rows).toEqual([{account_id: accountA}]);
+    const tenantAccounts = await asRequest({tenant: {accountId: accountA}}, (tx) =>
+      tx.execute<{id: string}>(sql`SELECT id FROM accounts`),
+    );
+    expect(tenantAccounts.rows).toEqual([{id: accountA}]);
+    const globalAccounts = await asRequest({}, (tx) => tx.execute(sql`SELECT * FROM accounts`));
+    const globalInstallations = await asRequest({}, (tx) =>
+      tx.execute(sql`SELECT * FROM accounts_installations`),
+    );
+    const globalMemberships = await asRequest({}, (tx) =>
+      tx.execute(sql`SELECT * FROM accounts_memberships`),
+    );
+    expect(globalAccounts.rows).toEqual([]);
+    expect(globalInstallations.rows).toEqual([]);
+    expect(globalMemberships.rows).toEqual([]);
     const globalRows = await asRequest({}, (tx) =>
       tx.execute<{token_digest: string}>(sql`SELECT token_digest FROM auth_sessions`),
     );
     expect(globalRows.rows).toEqual([{token_digest: 'global-token'}]);
   });
 
-  it('fails closed for cross-account writes and mismatched installation providers', async () => {
+  it('allows same-account writes and fails closed for cross-account writes', async () => {
+    const membershipId = randomUUID();
+    await asRequest({tenant: {accountId: accountA}}, (tx) =>
+      tx.execute(
+        sql`INSERT INTO accounts_memberships (id, account_id, identity_id, role, state) VALUES (${membershipId}, ${accountA}, ${randomUUID()}, 'viewer', 'active')`,
+      ),
+    );
+    const sameAccountUpdate = await asRequest({tenant: {accountId: accountA}}, (tx) =>
+      tx.execute(
+        sql`UPDATE accounts_memberships SET provider_role = 'member' WHERE id = ${membershipId}`,
+      ),
+    );
+    expect(sameAccountUpdate.rowCount).toBe(1);
     await expect(
       asRequest({tenant: {accountId: accountA}}, (tx) =>
         tx.execute(
           sql`INSERT INTO accounts_memberships (account_id, identity_id, role, state) VALUES (${accountB}, ${identityA}, 'viewer', 'active')`,
+        ),
+      ),
+    ).rejects.toMatchObject({cause: {code: '42501'}});
+    await expect(
+      asRequest({tenant: {accountId: accountA}}, (tx) =>
+        tx.execute(
+          sql`UPDATE accounts_memberships SET account_id = ${accountB} WHERE id = ${membershipId}`,
         ),
       ),
     ).rejects.toMatchObject({cause: {code: '42501'}});
@@ -160,7 +216,7 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
     expect(rows.rows).toEqual([{id: provisioned}]);
   });
 
-  it('retains provider and membership uniqueness under concurrent duplicate writes', async () => {
+  it('retains every unique constraint under concurrent duplicate writes', async () => {
     if (!pool) throw new Error('PostgreSQL fixture was not initialized.');
     const duplicateIdentity = await Promise.allSettled([
       pool.query(
@@ -183,6 +239,136 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
     ]);
     expect(duplicateMembership.filter(({status}) => status === 'fulfilled')).toHaveLength(1);
     expect(duplicateMembership.filter(({status}) => status === 'rejected')).toHaveLength(1);
+
+    const duplicateAccounts = await Promise.allSettled([
+      pool.query(
+        "INSERT INTO accounts (provider, provider_namespace_id, namespace_kind, slug, display_name) VALUES ('github', 'concurrent-namespace', 'organization', 'concurrent-account', 'First')",
+      ),
+      pool.query(
+        "INSERT INTO accounts (provider, provider_namespace_id, namespace_kind, slug, display_name) VALUES ('github', 'concurrent-namespace', 'organization', 'concurrent-account', 'Second')",
+      ),
+    ]);
+    expect(duplicateAccounts.filter(({status}) => status === 'fulfilled')).toHaveLength(1);
+    expect(duplicateAccounts.filter(({status}) => status === 'rejected')).toHaveLength(1);
+
+    const installationAccount = randomUUID();
+    await pool.query(
+      `INSERT INTO accounts (id, provider, provider_namespace_id, namespace_kind, slug, display_name) VALUES ('${installationAccount}', 'github', 'installation-namespace', 'organization', 'installation-account', 'Installation Account')`,
+    );
+    const duplicateInstallations = await Promise.allSettled([
+      pool.query(
+        `INSERT INTO accounts_installations (account_id, provider, provider_installation_id, state, repository_selection, installed_at) VALUES ('${installationAccount}', 'github', 'concurrent-installation', 'active', 'all', now())`,
+      ),
+      pool.query(
+        `INSERT INTO accounts_installations (account_id, provider, provider_installation_id, state, repository_selection, installed_at) VALUES ('${installationAccount}', 'github', 'concurrent-installation', 'active', 'all', now())`,
+      ),
+    ]);
+    expect(duplicateInstallations.filter(({status}) => status === 'fulfilled')).toHaveLength(1);
+    expect(duplicateInstallations.filter(({status}) => status === 'rejected')).toHaveLength(1);
+
+    const partialIndexAccount = randomUUID();
+    await pool.query(
+      `INSERT INTO accounts (id, provider, provider_namespace_id, namespace_kind, slug, display_name) VALUES ('${partialIndexAccount}', 'github', 'partial-namespace', 'organization', 'partial-account', 'Partial Account')`,
+    );
+    const secondCurrentInstallation = await Promise.allSettled([
+      pool.query(
+        `INSERT INTO accounts_installations (account_id, provider, provider_installation_id, state, repository_selection, installed_at) VALUES ('${partialIndexAccount}', 'github', 'partial-installation-a', 'active', 'all', now())`,
+      ),
+      pool.query(
+        `INSERT INTO accounts_installations (account_id, provider, provider_installation_id, state, repository_selection, installed_at) VALUES ('${partialIndexAccount}', 'github', 'partial-installation-b', 'active', 'all', now())`,
+      ),
+    ]);
+    expect(secondCurrentInstallation.filter(({status}) => status === 'fulfilled')).toHaveLength(1);
+    expect(secondCurrentInstallation.filter(({status}) => status === 'rejected')).toHaveLength(1);
+  });
+
+  it('converges repository upserts and installation links under concurrent calls', async () => {
+    if (!database) throw new Error('PostgreSQL fixture was not initialized.');
+    const activeDatabase = database;
+    const identities = new PostgresProviderIdentityRepository(activeDatabase);
+    const accountRepository = new PostgresAccountRepository(activeDatabase);
+    const installations = new PostgresInstallationRepository(activeDatabase);
+    const concurrentIdentities = await Promise.all(
+      ['first', 'second'].map((login) =>
+        activeDatabase.transaction((transaction) =>
+          identities.upsertByProviderUser(transaction, {
+            provider: 'github',
+            providerUserId: 'repository-concurrent-user',
+            login,
+          }),
+        ),
+      ),
+    );
+    const firstIdentity = concurrentIdentities[0];
+    const secondIdentity = concurrentIdentities[1];
+    if (!firstIdentity || !secondIdentity) throw new Error('Expected two identity upsert results.');
+    expect(firstIdentity.id).toBe(secondIdentity.id);
+    const concurrentAccounts = await Promise.all(
+      ['First', 'Second'].map((displayName) =>
+        activeDatabase.transaction((transaction) =>
+          accountRepository.upsertByProviderNamespace(transaction, {
+            provider: 'github',
+            providerNamespaceId: 'repository-concurrent-namespace',
+            namespaceKind: 'organization',
+            slug: 'repository-concurrent-account',
+            displayName,
+            state: 'active',
+          }),
+        ),
+      ),
+    );
+    const firstAccount = concurrentAccounts[0];
+    const secondAccount = concurrentAccounts[1];
+    if (!firstAccount || !secondAccount) throw new Error('Expected two account upsert results.');
+    expect(firstAccount.id).toBe(secondAccount.id);
+    const linked = await Promise.all(
+      ['all', 'selected'].map((repositorySelection) =>
+        activeDatabase.transaction((transaction) =>
+          installations.linkCurrent(transaction, {
+            accountId: firstAccount.id,
+            provider: 'github',
+            providerInstallationId: 'repository-concurrent-installation',
+            state: 'active',
+            repositorySelection: repositorySelection as 'all' | 'selected',
+            installedAt: new Date('2032-01-01T00:00:00.000Z'),
+          }),
+        ),
+      ),
+    );
+    expect(new Set(linked.map(({id}) => id)).size).toBe(1);
+  });
+
+  it('does not revive sessions expired by either deadline', async () => {
+    if (!database) throw new Error('PostgreSQL fixture was not initialized.');
+    const sessions = new PostgresSessionRepository(database);
+    const now = new Date('2031-01-01T00:00:00.000Z');
+    const cases = [
+      {
+        tokenDigest: 'absolute-expired-session',
+        absoluteExpiresAt: new Date('2030-12-31T23:59:59.000Z'),
+        inactivityExpiresAt: new Date('2031-01-02T00:00:00.000Z'),
+      },
+      {
+        tokenDigest: 'inactive-expired-session',
+        absoluteExpiresAt: new Date('2031-01-02T00:00:00.000Z'),
+        inactivityExpiresAt: new Date('2030-12-31T23:59:59.000Z'),
+      },
+    ];
+    for (const input of cases) {
+      const session = await database.transaction((transaction) =>
+        sessions.create(transaction, {identityId: identityA, ...input}),
+      );
+      await database.transaction((transaction) =>
+        expect(
+          sessions.touch(transaction, session.id, now, new Date('2031-01-03T00:00:00.000Z')),
+        ).resolves.toBeUndefined(),
+      );
+      await database.transaction((transaction) =>
+        expect(
+          sessions.findByTokenDigest(transaction, session.tokenDigest, now),
+        ).resolves.toBeUndefined(),
+      );
+    }
   });
 
   it('executes repository branches without leaking raw database conflicts', async () => {
@@ -278,6 +464,18 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
       id: session.id,
       lastSeenAt: new Date('2031-01-01T00:00:01.000Z'),
     });
+    const staleTouch = await activeDatabase.transaction((transaction) =>
+      sessions.touch(
+        transaction,
+        session.id,
+        new Date('2030-12-31T23:59:59.000Z'),
+        new Date('2031-01-01T12:00:00.000Z'),
+      ),
+    );
+    expect(staleTouch).toMatchObject({
+      lastSeenAt: new Date('2031-01-01T00:00:01.000Z'),
+      inactivityExpiresAt: new Date('2031-01-03T00:00:00.000Z'),
+    });
     await activeDatabase.transaction((transaction) =>
       sessions.revoke(transaction, session.id, now),
     );
@@ -289,20 +487,6 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
     await activeDatabase.transaction((transaction) =>
       sessions.revokeAllForIdentity(transaction, identity.id, now),
     );
-    const expiredSession = await activeDatabase.transaction((transaction) =>
-      sessions.create(transaction, {
-        identityId: identity.id,
-        tokenDigest: 'expired-session',
-        absoluteExpiresAt: new Date('2030-12-31T23:59:59.000Z'),
-        inactivityExpiresAt: new Date('2030-12-31T23:59:59.000Z'),
-      }),
-    );
-    await activeDatabase.transaction((transaction) =>
-      expect(
-        sessions.touch(transaction, expiredSession.id, now, new Date('2031-01-02T00:00:00.000Z')),
-      ).resolves.toBeUndefined(),
-    );
-
     const account = await activeDatabase.transaction((transaction) =>
       accountRepository.upsertByProviderNamespace(transaction, {
         provider: 'github',
@@ -350,9 +534,15 @@ describe.runIf(integrationEnabled)('accounts PostgreSQL migration and RLS', () =
       }),
     );
     expect(reconnected).toMatchObject({accountId: account.id, repositorySelection: 'selected'});
-    await activeDatabase.transaction((transaction) =>
+    await asRequestTransaction({tenant: {accountId: account.id}}, (transaction) =>
       expect(installations.findCurrentForAccount(transaction)).resolves.toMatchObject({
         id: reconnected.id,
+        accountId: account.id,
+      }),
+    );
+    await asRequestTransaction({tenant: {accountId: accountB}}, (transaction) =>
+      expect(installations.findCurrentForAccount(transaction)).resolves.toMatchObject({
+        accountId: accountB,
       }),
     );
     await expect(

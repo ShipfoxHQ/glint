@@ -56,7 +56,8 @@ dependency containers are no longer needed. Override individual ports with `GLIN
 needed.
 
 The root `compose.yml` also remains usable for dependency-only development. With PostgreSQL
-running, `mise run database:test` exercises the real transaction, migration, and outbox contracts.
+running, `mise run database:test` exercises the real transaction, migration, outbox, accounts
+persistence, and RLS contracts.
 
 ## Package architecture
 

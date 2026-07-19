@@ -1,4 +1,5 @@
 import {describe, expect, it} from '@shipfox/vitest/vi';
+import * as accountsApi from '../index.js';
 import {ACCOUNTS_MIGRATION} from '../migration.js';
 import {accountFromRow, providerIdentityFromRow} from './mapping.js';
 import {PostgresMembershipProjectionRepository} from './membership-projection.repository.js';
@@ -46,5 +47,11 @@ describe('accounts persistence mapping and ports', () => {
   it('does not expose manual membership-role mutation', () => {
     expect('setRole' in PostgresMembershipProjectionRepository.prototype).toBe(false);
     expect('updateRole' in PostgresMembershipProjectionRepository.prototype).toBe(false);
+  });
+
+  it('exports factories and ports without exposing concrete database repositories', () => {
+    expect(accountsApi.createPostgresAccountsRepositories).toBeTypeOf('function');
+    expect('PostgresAccountRepository' in accountsApi).toBe(false);
+    expect('PostgresInstallationRepository' in accountsApi).toBe(false);
   });
 });
