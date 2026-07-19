@@ -1,3 +1,4 @@
+export {classifyVcsProviderError} from './error-classification.js';
 export {InMemoryVcsIdentityProvider, InMemoryVcsProvider} from './in-memory.js';
 export type {
   VcsAccessLevel,

@@ -40,6 +40,42 @@ export const accountRepresentationSchema = z
     }
   });
 
+export const accountSummaryRepresentationSchema = z.object({
+  id: z.string(),
+  namespace: vcsNamespaceSchema,
+  slug: z.string(),
+  displayName: z.string(),
+  role: accountRoleSchema,
+  state: accountStateSchema,
+  verifiedAt: z.iso.datetime().optional(),
+  leaseExpiresAt: z.iso.datetime().optional(),
+});
+
+/** Account reads may precede installation onboarding, so installation is intentionally optional. */
+export const accountDetailRepresentationSchema = z
+  .object({
+    id: z.string(),
+    namespace: vcsNamespaceSchema,
+    installation: vcsInstallationSchema.optional(),
+    state: accountStateSchema,
+  })
+  .superRefine((account, context) => {
+    if (account.installation && account.installation.provider !== account.namespace.provider) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Installation provider must match the account namespace provider',
+        path: ['installation', 'provider'],
+      });
+    }
+    if (account.installation && account.installation.namespaceId !== account.namespace.id) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Installation namespace must match the account namespace',
+        path: ['installation', 'namespaceId'],
+      });
+    }
+  });
+
 export const membershipRepresentationSchema = z.object({
   accountId: z.string(),
   identityId: z.string(),
@@ -74,16 +110,24 @@ export const authErrorResponseSchema = z.object({
   error: z.object({code: authErrorCodeSchema}),
 });
 
+export const accountErrorResponseSchema = z.object({
+  error: z.object({code: accountErrorCodeSchema}),
+});
+
 export const sessionEnvelopeSchema = z.object({
   session: sessionRepresentationSchema,
   identity: identityRepresentationSchema,
+  accounts: z.array(accountSummaryRepresentationSchema),
 });
 
 export type SessionRepresentation = z.infer<typeof sessionRepresentationSchema>;
 export type IdentityRepresentation = z.infer<typeof identityRepresentationSchema>;
 export type AccountRepresentation = z.infer<typeof accountRepresentationSchema>;
+export type AccountSummaryRepresentation = z.infer<typeof accountSummaryRepresentationSchema>;
+export type AccountDetailRepresentation = z.infer<typeof accountDetailRepresentationSchema>;
 export type MembershipRepresentation = z.infer<typeof membershipRepresentationSchema>;
 export type AccountErrorCode = z.infer<typeof accountErrorCodeSchema>;
 export type AuthErrorCode = z.infer<typeof authErrorCodeSchema>;
 export type AuthErrorResponse = z.infer<typeof authErrorResponseSchema>;
+export type AccountErrorResponse = z.infer<typeof accountErrorResponseSchema>;
 export type SessionEnvelope = z.infer<typeof sessionEnvelopeSchema>;

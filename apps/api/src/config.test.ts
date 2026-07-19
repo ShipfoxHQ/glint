@@ -4,6 +4,7 @@ import {loadApiEnvironment} from './config.js';
 describe('API authentication environment', () => {
   it('keeps local OAuth usable with non-secure development cookies', () => {
     expect(loadApiEnvironment({}).GLINT_SESSION_COOKIE_SECURE).toBe(false);
+    expect(loadApiEnvironment({}).GLINT_ACCOUNT_AUTHORIZATION_LEASE_TTL_SECONDS).toBe(900);
   });
 
   const secureProductionEnvironment = {
